@@ -1,5 +1,24 @@
-# Vue 3 + Vite
+# my-honeymoon-vue-firebase
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+蜜月行程 Web App（Vue 3 + Vite + Firebase），部署於 GitHub Pages。
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+---
+
+## 技術架構
+
+| 類別 | 使用技術 |
+|---|---|
+| 前端 | Vue 3 |
+| 建構工具 | Vite |
+| 身份驗證 | Firebase Authentication（Google 登入） |
+| 資料庫 | Cloud Firestore |
+| 部署 | GitHub Pages（gh-pages） |
+| 套件管理 | npm |
+
+---
+
+## 本地開發
+
+### 安裝依賴
+```bash
+npm install

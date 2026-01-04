@@ -9,9 +9,19 @@
         <div class="auth-left">
           <div class="auth-user" v-if="user">
             <div class="auth-dot"></div>
+
+            <!-- ✅ Google 頭像（匿名則 fallback） -->
+            <img
+              class="auth-avatar"
+              :src="userAvatar"
+              :alt="userLabel"
+              referrerpolicy="no-referrer"
+            />
+
             <div class="auth-text">
               <div class="auth-name">{{ userLabel }}</div>
-              <div class="auth-meta">UID: {{ user.uid }}</div>
+              <!-- ✅ 不顯示 UID，改顯示登入方式 -->
+              <div class="auth-meta">{{ userMeta }}</div>
             </div>
           </div>
 
@@ -31,11 +41,27 @@
         </div>
       </div>
 
-      <!-- 預設行程提示（不需輸入） -->
-      <div class="trip-hint">
-        預設行程：<b>{{ DEFAULT_TRIP_ID }}</b>
-        <span v-if="user">｜權限狀態：<b>{{ isMember ? "已加入 ✅" : "尚未加入 ⛔" }}</b></span>
+      <!-- ✅ 線上成員名單（多登入者同時顯示名稱＋頭像） -->
+      <div class="presence-bar" v-if="presenceList.length">
+        <div class="presence-title">目前線上</div>
+        <div class="presence-list">
+          <div class="presence-item" v-for="p in presenceList" :key="p.id">
+            <img
+              class="presence-avatar"
+              :src="p.photoURL || DEFAULT_AVATAR"
+              :alt="p.displayName || '使用者'"
+              referrerpolicy="no-referrer"
+            />
+            <div class="presence-name">
+              {{ p.displayName || "使用者" }}
+              <span v-if="p.isMe" class="presence-badge">你</span>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <!-- ✅ 2) 預設行程提示拿掉：trip-hint 整段不顯示 -->
+      <!-- （已移除） -->
     </header>
 
     <main class="app-main">
@@ -287,7 +313,7 @@
       </section>
     </main>
 
-    <!-- 底部導覽（只有成員才有意義，所以未加入也保留但會停在尚未加入畫面） -->
+    <!-- 底部導覽 -->
     <nav class="bottom-nav">
       <button class="nav-item" :class="{ active: currentPage === 'itinerary' }" @click="currentPage = 'itinerary'">
         <div class="nav-icon">🗓️</div>
@@ -308,7 +334,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import { db } from "./firebase";
 
 import {
@@ -321,6 +347,8 @@ import {
   updateDoc,
   addDoc,
   serverTimestamp,
+  setDoc,
+  onSnapshot,
 } from "firebase/firestore";
 
 import {
@@ -339,10 +367,103 @@ const DEFAULT_TRIP_ID = "HM-8F3K2A";
 const auth = getAuth();
 const user = ref(null);
 
+/* ✅ 預設頭像（匿名/無 photoURL 時用） */
+const DEFAULT_AVATAR =
+  "data:image/svg+xml;base64," +
+  btoa(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+    <rect width="100%" height="100%" fill="#f2f2f2"/>
+    <circle cx="32" cy="26" r="12" fill="#c9c9c9"/>
+    <rect x="14" y="42" width="36" height="16" rx="8" fill="#c9c9c9"/>
+  </svg>`);
+
+/* ✅ 顯示名稱 */
 const userLabel = computed(() => {
   if (!user.value) return "";
   return user.value.displayName || (user.value.isAnonymous ? "匿名使用者" : "使用者");
 });
+
+/* ✅ 顯示頭像（Google photoURL 優先） */
+const userAvatar = computed(() => {
+  if (!user.value) return DEFAULT_AVATAR;
+  return user.value.photoURL || DEFAULT_AVATAR;
+});
+
+/* ✅ 取代 UID 顯示：改成登入方式/狀態 */
+const userMeta = computed(() => {
+  if (!user.value) return "";
+  if (user.value.isAnonymous) return "匿名登入";
+  return "Google 登入";
+});
+
+/* ===================== Presence（線上名單） ===================== */
+/**
+ * Firestore 無 RTDB onDisconnect，所以用「lastSeen + 心跳」
+ * 判定在線：lastSeen 距今 <= ONLINE_WINDOW 秒
+ */
+const presenceRaw = ref([]);
+const ONLINE_WINDOW_SEC = 120;
+let heartbeatTimer = null;
+let unsubPresence = null;
+
+const presenceList = computed(() => {
+  const meUid = user.value?.uid || "";
+  const now = Date.now();
+
+  // 只顯示在線者（也可改成顯示全部，這裡符合你「同時顯示名稱」的直覺需求）
+  return presenceRaw.value
+    .map((p) => {
+      const lastSeenMs = p.lastSeenMs || 0;
+      const isOnline = lastSeenMs > 0 && now - lastSeenMs <= ONLINE_WINDOW_SEC * 1000;
+      return { ...p, isOnline, isMe: p.id === meUid };
+    })
+    .filter((p) => p.isOnline)
+    .sort((a, b) => (a.displayName || "").localeCompare(b.displayName || "", "zh-Hant"));
+});
+
+async function upsertPresence() {
+  if (!user.value) return;
+
+  await setDoc(
+    doc(db, "presence", user.value.uid),
+    {
+      displayName: userLabel.value,
+      photoURL: user.value.photoURL || "",
+      lastSeen: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+function startHeartbeat() {
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => {
+    upsertPresence().catch(() => {});
+  }, 30_000);
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
+function subscribePresence() {
+  // 依 displayName 排序（UI 好看）
+  const q = query(collection(db, "presence"), orderBy("displayName", "asc"));
+  unsubPresence = onSnapshot(q, (snap) => {
+    presenceRaw.value = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        displayName: data.displayName || "",
+        photoURL: data.photoURL || "",
+        lastSeenMs: data.lastSeen?.toMillis ? data.lastSeen.toMillis() : 0,
+      };
+    });
+  });
+}
 
 /* ===================== Membership gate ===================== */
 const membershipChecked = ref(false);
@@ -358,6 +479,9 @@ const pageTitle = computed(() => {
 });
 
 onMounted(() => {
+  // ✅ 訂閱線上名單（只要頁面開著就可看）
+  subscribePresence();
+
   onAuthStateChanged(auth, async (u) => {
     user.value = u || null;
 
@@ -366,11 +490,16 @@ onMounted(() => {
 
     // 登出：清資料
     if (!user.value) {
+      stopHeartbeat();
       plan.value = [];
       activeDayId.value = null;
       expenses.value = [];
       return;
     }
+
+    // ✅ 登入：寫 presence + 心跳
+    await upsertPresence();
+    startHeartbeat();
 
     // 登入：先檢查自己是否在 members
     await checkMembership();
@@ -383,6 +512,11 @@ onMounted(() => {
   });
 });
 
+onBeforeUnmount(() => {
+  stopHeartbeat();
+  if (unsubPresence) unsubPresence();
+});
+
 async function loginGoogle() {
   const provider = new GoogleAuthProvider();
   await signInWithPopup(auth, provider);
@@ -393,6 +527,7 @@ async function loginAnon() {
 }
 
 async function logout() {
+  stopHeartbeat();
   await signOut(auth);
 }
 
@@ -404,15 +539,12 @@ async function checkMembership() {
   isMember.value = false;
 
   try {
-    // 讀自己那筆 members/{uid}
-    // ⚠️ 你的 rules 需要允許：本人讀自己的 members doc（即使尚未加入）
     const memberRef = doc(db, "trips", DEFAULT_TRIP_ID, "members", user.value.uid);
     const snap = await getDoc(memberRef);
 
     isMember.value = snap.exists();
   } catch (e) {
     console.error("檢查 members 失敗：", e);
-    // 若 rules 設太嚴導致 permission-denied，這裡也會變成 false
     isMember.value = false;
   } finally {
     membershipChecked.value = true;
@@ -857,6 +989,14 @@ function formatNumber(n) {
   background: rgba(0, 0, 0, 0.25);
 }
 
+.auth-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid rgba(0, 0, 0, 0.06);
+}
+
 .auth-text {
   display: flex;
   flex-direction: column;
@@ -871,12 +1011,55 @@ function formatNumber(n) {
   opacity: 0.65;
 }
 
-.trip-hint {
+/* ✅ 線上成員 */
+.presence-bar {
   margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
   font-size: 12px;
-  opacity: 0.75;
-  font-weight: 800;
+  opacity: 0.9;
 }
+
+.presence-title {
+  font-weight: 900;
+  opacity: 0.75;
+}
+
+.presence-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.presence-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.presence-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.presence-name {
+  font-weight: 900;
+}
+
+.presence-badge {
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* （你原本的 trip-hint 已移除） */
 
 .uid-box {
   margin-top: 12px;
