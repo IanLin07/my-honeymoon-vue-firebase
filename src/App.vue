@@ -4,7 +4,7 @@
       <div class="app-title">❤️ 廷翰與燁姍的蜜月旅行</div>
       <div class="app-subtitle">{{ pageTitle }}</div>
 
-      <!-- 登入列 -->
+      <!-- 登入列（僅 Google 登入；未登入＝只讀瀏覽模式） -->
       <div class="auth-bar">
         <div class="auth-left">
           <div class="auth-user" v-if="user">
@@ -26,21 +26,20 @@
           <div class="auth-user" v-else>
             <div class="auth-dot off"></div>
             <div class="auth-text">
-              <div class="auth-name">尚未登入</div>
-              <div class="auth-meta">請先登入才能查看行程</div>
+              <div class="auth-name">只讀瀏覽模式</div>
+              <div class="auth-meta">知道連結即可查看；要編輯/記帳/勾選清單請先登入</div>
             </div>
           </div>
         </div>
 
         <div class="auth-right">
           <button v-if="!user" class="btn btn-secondary" @click="loginGoogle">Google 登入</button>
-          <button v-if="!user" class="btn btn-secondary" @click="loginAnon">匿名登入</button>
           <button v-if="user" class="btn btn-ghost" @click="logout">登出</button>
         </div>
       </div>
 
-      <!-- 線上成員名單 -->
-      <div class="presence-bar" v-if="presenceList.length">
+      <!-- 線上成員名單（只有登入才顯示） -->
+      <div class="presence-bar" v-if="user && presenceList.length">
         <div class="presence-title">目前線上</div>
         <div class="presence-list">
           <div class="presence-item" v-for="p in presenceList" :key="p.id">
@@ -60,45 +59,8 @@
     </header>
 
     <main class="app-main">
-      <!-- 未登入 -->
-      <section v-if="!user" class="page">
-        <div class="card">
-          <div class="card-title">🔐 請先登入</div>
-          <div class="card-subtitle">登入後會自動進入預設行程，不需要輸入行程代碼。</div>
-        </div>
-      </section>
-
-      <!-- 已登入但尚未加入 members -->
-      <section v-else-if="user && !membershipChecked" class="page">
-        <div class="card">
-          <div class="card-title">⏳ 權限檢查中</div>
-          <div class="card-subtitle">正在確認你是否已被加入行程成員名單…</div>
-          <div class="empty-state">如果你看到這個一直轉圈，通常是網路或 rules 設定問題。</div>
-        </div>
-      </section>
-
-      <!-- 已登入但不是成員 -->
-      <section v-else-if="user && membershipChecked && !isMember" class="page">
-        <div class="card">
-          <div class="card-title">⛔ 你尚未被加入這個行程</div>
-          <div class="card-subtitle">
-            這是「方案 A」：不輸入行程代碼，但也不允許陌生人自己加入。<br />
-            請把你的 UID 貼給行程管理者（owner）加入 members 名單。
-          </div>
-
-          <div class="uid-box">
-            <div class="uid-label">你的 UID</div>
-            <div class="uid-value">{{ user.uid }}</div>
-            <div class="uid-actions">
-              <button class="btn btn-primary" @click="copyUid">一鍵複製 UID</button>
-              <button class="btn btn-secondary" @click="recheckMembership">重新檢查</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- =============== 行程頁 =============== -->
-      <section v-else-if="user && membershipChecked && isMember && currentPage === 'itinerary'" class="page">
+      <!-- =============== 行程頁（任何人可看；登入且是成員才可改） =============== -->
+      <section v-if="currentPage === 'itinerary'" class="page">
         <div class="day-tabs">
           <button
             v-for="day in plan"
@@ -153,11 +115,6 @@
                 </div>
               </div>
 
-              <!-- 倒數 -->
-              <div class="countdown-text" v-if="honeymoonCountdownText">
-                {{ honeymoonCountdownText }}
-              </div>
-
               <div v-if="weatherState.loading" class="weather-loading">天氣讀取中...</div>
               <div v-if="weatherState.error" class="weather-error">天氣讀取失敗：{{ weatherState.error }}</div>
             </div>
@@ -168,10 +125,37 @@
             </div>
           </div>
 
-          <h2 class="day-title">📅 第 {{ day.day }} 天（{{ day.date }}）</h2>
+          <!-- ✅ 倒數：獨立區域、字體放大、放在天氣下方、行程上方 -->
+          <div class="countdown-card" v-if="honeymoonCountdownText">
+            <div class="countdown-big">{{ honeymoonCountdownText }}</div>
+            <div class="countdown-sub">（以第 1 天日期為基準）</div>
+          </div>
+
+          <div class="day-head">
+            <h2 class="day-title">📅 第 {{ day.day }} 天（{{ day.date }}）</h2>
+
+            <div class="day-head-actions" v-if="canWrite">
+              <button class="btn btn-secondary btn-mini" @click="openEventEditor(day.id, null)">＋ 新增行程</button>
+              <button class="btn btn-danger btn-mini" @click="clearAllNotes(day.id)">清除全部筆記</button>
+            </div>
+
+            <div class="day-head-actions" v-else>
+              <div class="readonly-hint">
+                只讀模式：要新增/編輯行程與筆記，請先以 Google 登入且被加入 members。
+              </div>
+            </div>
+          </div>
 
           <div v-for="(event, idx) in day.events" :key="idx">
-            <div class="event-card">
+            <div
+              class="event-card"
+              @touchstart="onEventPressStart(day.id, idx)"
+              @touchend="onEventPressEnd"
+              @touchcancel="onEventPressEnd"
+              @mousedown="onEventPressStart(day.id, idx)"
+              @mouseup="onEventPressEnd"
+              @mouseleave="onEventPressEnd"
+            >
               <div class="event-row">
                 <div class="event-time">{{ event.time }}</div>
 
@@ -181,17 +165,28 @@
                 </div>
 
                 <div class="event-actions" v-if="!event.showNote">
-                  <button class="btn btn-secondary" @click="openNavigation(event.loc)">導航</button>
-                  <button class="btn btn-primary" @click="toggleNote(day.id, idx)">筆記</button>
+                  <button class="btn btn-secondary" @click.stop="openNavigation(event.loc)">導航</button>
+                  <button class="btn btn-primary" @click.stop="toggleNote(day.id, idx)">筆記</button>
                 </div>
               </div>
 
               <div v-if="event.showNote" class="note-panel">
-                <textarea v-model="event.note" class="note-textarea" placeholder="輸入筆記..."></textarea>
+                <textarea
+                  v-model="event.note"
+                  class="note-textarea"
+                  placeholder="輸入筆記..."
+                  :disabled="!canWrite"
+                ></textarea>
 
                 <div class="note-actions">
-                  <button class="btn btn-primary" @click="saveNote(day.id, idx)">儲存</button>
-                  <button class="btn btn-secondary" @click="toggleNote(day.id, idx)">收合</button>
+                  <!-- ✅ 整合：按「收合」＝自動儲存 + 收合，不彈窗 -->
+                  <button class="btn btn-secondary" @click.stop="collapseAndSaveNote(day.id, idx)">
+                    收合
+                  </button>
+                </div>
+
+                <div v-if="!canWrite" class="readonly-hint" style="margin-top:8px;">
+                  只讀模式：筆記可看但不可改。
                 </div>
               </div>
             </div>
@@ -211,10 +206,53 @@
         <div v-if="!planLoading && plan.length === 0" class="empty-state">
           目前 plan 是空的：trips/{{ DEFAULT_TRIP_ID }}/plan
         </div>
+
+        <!-- 行程編輯 Modal（長按行程跳出） -->
+        <div v-if="eventEditor.open" class="modal-overlay" @click.self="closeEventEditor">
+          <div class="modal">
+            <div class="modal-title">🗓️ 編輯行程</div>
+            <div class="modal-subtitle">
+              你可以修改地點、停留時間（以及時間）。新增/刪除也在這裡完成。
+              <span v-if="!canWrite" style="opacity:.75;">（目前是只讀模式）</span>
+            </div>
+
+            <div class="form-grid" style="margin-top:10px;">
+              <label class="field">
+                <div class="field-label">時間</div>
+                <input class="field-input" v-model="eventEditor.form.time" :disabled="!canWrite" placeholder="例如：10:30" />
+              </label>
+
+              <label class="field">
+                <div class="field-label">停留</div>
+                <input class="field-input" v-model="eventEditor.form.stay" :disabled="!canWrite" placeholder="例如：01時00分" />
+              </label>
+
+              <label class="field field-span">
+                <div class="field-label">地點</div>
+                <input class="field-input" v-model="eventEditor.form.loc" :disabled="!canWrite" placeholder="例如：大阪城天守閣" />
+              </label>
+            </div>
+
+            <div class="row-right">
+              <button class="btn btn-secondary" @click="closeEventEditor">關閉</button>
+              <button class="btn btn-primary" @click="saveEventEdit" :disabled="!canWrite">儲存</button>
+            </div>
+
+            <div class="row-right" style="margin-top:10px;">
+              <button class="btn btn-danger" @click="deleteEvent" :disabled="!canWrite || !eventEditor.isEdit">
+                刪除
+              </button>
+            </div>
+
+            <div class="modal-hint">
+              提醒：只有「登入且在 members」的成員可以儲存。
+            </div>
+          </div>
+        </div>
       </section>
 
-      <!-- =============== 記帳頁（截圖樣式 + 你新需求） =============== -->
-      <section v-else-if="user && membershipChecked && isMember && currentPage === 'accounting'" class="page">
+      <!-- =============== 記帳頁（未登入＝只看明細；登入且成員＝可記帳/編輯） =============== -->
+      <section v-else-if="currentPage === 'accounting'" class="page">
         <!-- 分段切換：記帳 / 明細 -->
         <div class="segmented">
           <button
@@ -222,6 +260,8 @@
             :class="{ active: accountingTab === 'entry' }"
             @click="accountingTab = 'entry'"
             type="button"
+            :disabled="!canWrite"
+            :title="!canWrite ? '只讀模式無法記帳，請先登入並加入 members' : ''"
           >
             🧾 記帳
           </button>
@@ -236,16 +276,20 @@
           </button>
         </div>
 
-        <!-- ===== 記帳輸入 ===== -->
+        <!-- ===== 記帳輸入（僅成員可用） ===== -->
         <div v-if="accountingTab === 'entry'" class="acc-entry">
           <div class="acc-card">
             <div class="acc-card-title">💰 記帳輸入</div>
+
+            <div v-if="!canWrite" class="empty-state" style="margin:0 0 10px 0;">
+              只讀模式：你可以看「明細」，但不能新增/修改記帳。要記帳請先 Google 登入並被加入 members。
+            </div>
 
             <!-- 日期 -->
             <div class="acc-field">
               <div class="acc-label">日期</div>
               <div class="acc-date">
-                <input class="acc-input" type="date" v-model="expenseForm.date" />
+                <input class="acc-input" type="date" v-model="expenseForm.date" :disabled="!canWrite" />
               </div>
             </div>
 
@@ -258,6 +302,7 @@
                   :class="{ active: expenseForm.currency === 'JPY' }"
                   @click="expenseForm.currency = 'JPY'"
                   type="button"
+                  :disabled="!canWrite"
                 >
                   JPY
                 </button>
@@ -266,6 +311,7 @@
                   :class="{ active: expenseForm.currency === 'TWD' }"
                   @click="expenseForm.currency = 'TWD'"
                   type="button"
+                  :disabled="!canWrite"
                 >
                   TWD
                 </button>
@@ -276,7 +322,7 @@
             <div class="acc-grid-2">
               <div class="acc-field">
                 <div class="acc-label">＊金額</div>
-                <input class="acc-input" type="number" v-model.number="expenseForm.amount" placeholder="0" />
+                <input class="acc-input" type="number" v-model.number="expenseForm.amount" placeholder="0" :disabled="!canWrite" />
               </div>
 
               <div class="acc-field">
@@ -285,14 +331,14 @@
               </div>
             </div>
 
-            <!-- 支付方式（WOWPASS -> 大阪周遊券） -->
+            <!-- 支付方式（大阪周遊券 -> 優惠券） -->
             <div class="acc-field">
               <div class="acc-label">支付方式</div>
               <div class="acc-pills">
-                <button class="acc-pill small" :class="{ active: uiPayMethod === '現金' }" @click="uiPayMethod='現金'" type="button">現金</button>
-                <button class="acc-pill small" :class="{ active: uiPayMethod === '信用卡' }" @click="uiPayMethod='信用卡'" type="button">信用卡</button>
-                <button class="acc-pill small" :class="{ active: uiPayMethod === '大阪周遊券' }" @click="uiPayMethod='大阪周遊券'" type="button">大阪周遊券</button>
-                <button class="acc-pill small" :class="{ active: uiPayMethod === '行動支付' }" @click="uiPayMethod='行動支付'" type="button">行動支付</button>
+                <button class="acc-pill small" :class="{ active: uiPayMethod === '現金' }" @click="uiPayMethod='現金'" type="button" :disabled="!canWrite">現金</button>
+                <button class="acc-pill small" :class="{ active: uiPayMethod === '信用卡' }" @click="uiPayMethod='信用卡'" type="button" :disabled="!canWrite">信用卡</button>
+                <button class="acc-pill small" :class="{ active: uiPayMethod === '優惠券' }" @click="uiPayMethod='優惠券'" type="button" :disabled="!canWrite">優惠券</button>
+                <button class="acc-pill small" :class="{ active: uiPayMethod === '行動支付' }" @click="uiPayMethod='行動支付'" type="button" :disabled="!canWrite">行動支付</button>
               </div>
             </div>
 
@@ -301,28 +347,22 @@
               <div class="acc-label">地點（選填）</div>
               <div class="acc-with-icon">
                 <span class="acc-icon">📍</span>
-                <input class="acc-input" v-model="uiPlace" placeholder="例如：便利商店" />
+                <input class="acc-input" v-model="uiPlace" placeholder="例如：便利商店" :disabled="!canWrite" />
               </div>
             </div>
 
-            <!-- 消費項目 + 相機 -->
-            <div class="acc-grid-photo">
-              <div class="acc-field">
-                <div class="acc-label">＊消費項目</div>
-                <input class="acc-input" v-model="uiItem" placeholder="例如：午餐" />
-              </div>
-
-              <button class="acc-camera" type="button" @click="fakeCamera">
-                📷
-              </button>
+            <!-- 消費項目（移除拍照按鈕） -->
+            <div class="acc-field">
+              <div class="acc-label">＊消費項目</div>
+              <input class="acc-input" v-model="uiItem" placeholder="例如：午餐" :disabled="!canWrite" />
             </div>
 
-            <!-- 成員（改成：members 的 Google 名稱清單） -->
+            <!-- 成員 -->
             <div class="acc-field">
               <div class="acc-label">成員</div>
 
               <div v-if="memberChips.length === 0" class="empty-state" style="margin:8px 0 0 0;">
-                尚未取得成員名單（請確認 Firestore rules：members read 需允許 isMember(tripId)）。
+                尚未取得成員名單（請確認你已在 trips/{{ DEFAULT_TRIP_ID }}/members 內）。
               </div>
 
               <div v-else class="acc-members">
@@ -333,6 +373,7 @@
                   :class="{ active: uiMember === m }"
                   @click="uiMember = m"
                   type="button"
+                  :disabled="!canWrite"
                 >
                   {{ m }}
                 </button>
@@ -343,18 +384,18 @@
             <div class="acc-field">
               <div class="acc-label">分類</div>
               <div class="acc-pills">
-                <button class="acc-pill small" :class="{ active: expenseForm.category === 'food' }" @click="expenseForm.category='food'" type="button">餐飲</button>
-                <button class="acc-pill small" :class="{ active: expenseForm.category === 'traffic' }" @click="expenseForm.category='traffic'" type="button">交通</button>
-                <button class="acc-pill small" :class="{ active: expenseForm.category === 'shopping' }" @click="expenseForm.category='shopping'" type="button">購物</button>
-                <button class="acc-pill small" :class="{ active: expenseForm.category === 'ticket' }" @click="expenseForm.category='ticket'" type="button">門票</button>
-                <button class="acc-pill small" :class="{ active: expenseForm.category === 'hotel' }" @click="expenseForm.category='hotel'" type="button">住宿</button>
-                <button class="acc-pill small" :class="{ active: expenseForm.category === 'other' }" @click="expenseForm.category='other'" type="button">其他</button>
+                <button class="acc-pill small" :class="{ active: expenseForm.category === 'food' }" @click="expenseForm.category='food'" type="button" :disabled="!canWrite">餐飲</button>
+                <button class="acc-pill small" :class="{ active: expenseForm.category === 'traffic' }" @click="expenseForm.category='traffic'" type="button" :disabled="!canWrite">交通</button>
+                <button class="acc-pill small" :class="{ active: expenseForm.category === 'shopping' }" @click="expenseForm.category='shopping'" type="button" :disabled="!canWrite">購物</button>
+                <button class="acc-pill small" :class="{ active: expenseForm.category === 'ticket' }" @click="expenseForm.category='ticket'" type="button" :disabled="!canWrite">門票</button>
+                <button class="acc-pill small" :class="{ active: expenseForm.category === 'hotel' }" @click="expenseForm.category='hotel'" type="button" :disabled="!canWrite">住宿</button>
+                <button class="acc-pill small" :class="{ active: expenseForm.category === 'other' }" @click="expenseForm.category='other'" type="button" :disabled="!canWrite">其他</button>
               </div>
             </div>
 
             <!-- 儲存 -->
             <div class="acc-actions">
-              <button class="btn btn-primary" @click="addExpenseFromFancy">儲存</button>
+              <button class="btn btn-primary" @click="addExpenseFromFancy" :disabled="!canWrite">儲存</button>
             </div>
 
             <div class="acc-hint">
@@ -365,9 +406,8 @@
           </div>
         </div>
 
-        <!-- ===== 明細列表 ===== -->
+        <!-- ===== 明細列表（任何人可看） ===== -->
         <div v-else class="acc-detail">
-          <!-- 總支出黃卡（會跟 成員 + 日期 filter 連動） -->
           <div class="sum-card">
             <div class="sum-title">總支出（TWD）</div>
             <div class="sum-amt">NT$ {{ totalTwdFiltered }}</div>
@@ -378,13 +418,13 @@
                 <div class="sum-sub-value">¥ {{ totalJpyFiltered }}</div>
               </div>
               <div class="sum-sub-right">
-                <div class="sum-sub-label">匯率（{{ fxDateLabel }}）</div>
-                <div class="sum-sub-value">1：{{ fxValue.toFixed(4) }}</div>
+              <div class="sum-sub-label">匯率（JPY→TWD｜{{ fxDateLabel }}）</div>
+              <div class="sum-sub-value">1：{{ fxJpyToTwdValue.toFixed(4) }}</div>
+
               </div>
             </div>
           </div>
 
-          <!-- ✅ 日期切換 chips（像行程 tabs） -->
           <div class="day-tabs" style="margin-top:10px;">
             <button
               class="day-chip"
@@ -413,7 +453,6 @@
 
           <div class="detail-title">帳務明細</div>
 
-          <!-- ✅ 成員 filter：全體 + members -->
           <div class="detail-filters">
             <button
               class="filter-pill"
@@ -436,7 +475,6 @@
             </button>
           </div>
 
-          <!-- 依日期分組 -->
           <div v-if="groupedExpenses.length === 0" class="empty-state">
             沒有符合篩選條件的記帳紀錄。
           </div>
@@ -488,7 +526,6 @@
           </div>
         </div>
 
-        <!-- 記帳編輯 Modal -->
         <div v-if="expenseEditor.open" class="modal-overlay" @click.self="closeExpenseEditor">
           <div class="modal">
             <div class="modal-title">🧾 修改記帳</div>
@@ -508,26 +545,27 @@
                 <input class="field-input" type="number" v-model.number="expenseEditor.form.amount" :disabled="!canEditExpense(expenseEditor.origin)" />
               </label>
 
+              <!-- ✅ 幣別分格：改成與記帳頁一致 -->
               <div class="field">
                 <div class="field-label">幣別</div>
-                <div class="currency-pills">
+                <div class="acc-pills">
                   <button
-                    class="pill"
+                    class="acc-pill"
                     :class="{ active: expenseEditor.form.currency === 'JPY' }"
                     @click="expenseEditor.form.currency = 'JPY'"
                     type="button"
                     :disabled="!canEditExpense(expenseEditor.origin)"
                   >
-                    日圓 JPY
+                    JPY
                   </button>
                   <button
-                    class="pill"
+                    class="acc-pill"
                     :class="{ active: expenseEditor.form.currency === 'TWD' }"
                     @click="expenseEditor.form.currency = 'TWD'"
                     type="button"
                     :disabled="!canEditExpense(expenseEditor.origin)"
                   >
-                    台幣 TWD
+                    TWD
                   </button>
                 </div>
               </div>
@@ -562,166 +600,152 @@
             </div>
 
             <div class="modal-hint">
-              若你按「刪除」失敗，多半是 Firestore rules 目前不允許 delete；但 UI 已經做好。
+              如果你「按儲存/刪除失敗」，通常是：未登入、不是本人、或 rules 不允許。
             </div>
           </div>
         </div>
       </section>
 
-      <!-- =============== 準備頁 =============== -->
-      <section v-else-if="user && membershipChecked && isMember && currentPage === 'prep'" class="page">
+      <!-- =============== 準備頁（任何人可看；登入且成員才可新增/勾選/刪除） =============== -->
+      <section v-else-if="currentPage === 'prep'" class="page">
         <div class="card">
           <div class="card-title">🎒 準備清單</div>
           <div class="card-subtitle">
-            三個區塊：待辦（Todo）、行李清單、購物清單。支援新增/勾選/刪除，並同步至 Firestore。
+            三個分頁：待辦（Todo）、行李清單、購物清單。<br />
+            未登入可看；登入且是成員才可新增/勾選/刪除。
           </div>
         </div>
 
-        <div class="checklist-grid">
-          <div class="card">
-            <div class="card-title">✅ 待辦清單（Todo）</div>
+        <div class="segmented segmented-3">
+          <button class="seg-btn" :class="{ active: prepTab === 'todo' }" @click="prepTab='todo'" type="button">✅ 待辦</button>
+          <button class="seg-btn" :class="{ active: prepTab === 'luggage' }" @click="prepTab='luggage'" type="button">🧳 行李</button>
+          <button class="seg-btn" :class="{ active: prepTab === 'shopping' }" @click="prepTab='shopping'" type="button">🛍️ 購物</button>
+        </div>
 
-            <div class="inline-add">
-              <input class="field-input" v-model="prepInput.todo" placeholder="新增待辦..." />
-              <button class="btn btn-primary" @click="addPrepItem('todo')">新增</button>
-            </div>
+        <div v-if="prepTab === 'todo'" class="card">
+          <div class="card-title">✅ 待辦清單（Todo）</div>
 
-            <div v-if="prep.todo.loading" class="loading">同步中…</div>
-            <div v-if="prep.todo.error" class="empty-state">錯誤：{{ prep.todo.error }}</div>
-
-            <div class="list" v-if="prep.todo.items.length">
-              <div class="list-item">
-                <div class="todo">
-                  <b>完成</b>
-                </div>
-                <div style="font-weight:1000; opacity:.75;">內容</div>
-                <div style="width:64px; text-align:right; font-weight:1000; opacity:.75;">刪除</div>
-              </div>
-
-              <div class="list-item" v-for="it in prep.todo.items" :key="it.id">
-                <label class="todo">
-                  <input type="checkbox" v-model="it.done" @change="togglePrepDone('todo', it)" />
-                  <span :class="{ done: it.done }">{{ it.text }}</span>
-                </label>
-                <div style="width:64px; display:flex; justify-content:flex-end;">
-                  <button class="btn btn-ghost btn-mini" @click="deletePrepItem('todo', it)">刪除</button>
-                </div>
-              </div>
-            </div>
-
-            <div v-else class="empty-state">尚無待辦事項。</div>
+          <div class="inline-add">
+            <input class="field-input" v-model="prepInput.todo" placeholder="新增待辦..." :disabled="!canWrite" />
+            <button class="btn btn-primary" @click="addPrepItem('todo')" :disabled="!canWrite">新增</button>
           </div>
 
-          <div class="card">
-            <div class="card-title">🧳 行李清單</div>
+          <div v-if="prep.todo.loading" class="loading">同步中…</div>
+          <div v-if="prep.todo.error" class="empty-state">錯誤：{{ prep.todo.error }}</div>
 
-            <div class="inline-add">
-              <input class="field-input" v-model="prepInput.luggage" placeholder="新增行李..." />
-              <button class="btn btn-primary" @click="addPrepItem('luggage')">新增</button>
-            </div>
-
-            <div v-if="prep.luggage.loading" class="loading">同步中…</div>
-            <div v-if="prep.luggage.error" class="empty-state">錯誤：{{ prep.luggage.error }}</div>
-
-            <div class="list" v-if="prep.luggage.items.length">
-              <div class="list-item" v-for="it in prep.luggage.items" :key="it.id">
-                <label class="todo">
-                  <input type="checkbox" v-model="it.done" @change="togglePrepDone('luggage', it)" />
-                  <span :class="{ done: it.done }">{{ it.text }}</span>
-                </label>
-                <div style="width:64px; display:flex; justify-content:flex-end;">
-                  <button class="btn btn-ghost btn-mini" @click="deletePrepItem('luggage', it)">刪除</button>
-                </div>
+          <div class="list" v-if="prep.todo.items.length">
+            <div class="list-item" v-for="it in prep.todo.items" :key="it.id">
+              <label class="todo">
+                <input type="checkbox" v-model="it.done" @change="togglePrepDone('todo', it)" :disabled="!canWrite" />
+                <span :class="{ done: it.done }">{{ it.text }}</span>
+              </label>
+              <div style="width:64px; display:flex; justify-content:flex-end;">
+                <button class="btn btn-ghost btn-mini" @click="deletePrepItem('todo', it)" :disabled="!canWrite">刪除</button>
               </div>
             </div>
-
-            <div v-else class="empty-state">尚無行李項目。</div>
           </div>
 
-          <div class="card">
-            <div class="card-title">🛍️ 購物清單</div>
+          <div v-else class="empty-state">尚無待辦事項。</div>
+        </div>
 
-            <div class="inline-add">
-              <input class="field-input" v-model="prepInput.shopping" placeholder="新增購物項目..." />
-              <button class="btn btn-primary" @click="addPrepItem('shopping')">新增</button>
-            </div>
+        <div v-if="prepTab === 'luggage'" class="card">
+          <div class="card-title">🧳 行李清單</div>
 
-            <div v-if="prep.shopping.loading" class="loading">同步中…</div>
-            <div v-if="prep.shopping.error" class="empty-state">錯誤：{{ prep.shopping.error }}</div>
+          <div class="inline-add">
+            <input class="field-input" v-model="prepInput.luggage" placeholder="新增行李..." :disabled="!canWrite" />
+            <button class="btn btn-primary" @click="addPrepItem('luggage')" :disabled="!canWrite">新增</button>
+          </div>
 
-            <div class="list" v-if="prep.shopping.items.length">
-              <div class="list-item" v-for="it in prep.shopping.items" :key="it.id">
-                <label class="todo">
-                  <input type="checkbox" v-model="it.done" @change="togglePrepDone('shopping', it)" />
-                  <span :class="{ done: it.done }">{{ it.text }}</span>
-                </label>
-                <div style="width:64px; display:flex; justify-content:flex-end;">
-                  <button class="btn btn-ghost btn-mini" @click="deletePrepItem('shopping', it)">刪除</button>
-                </div>
+          <div v-if="prep.luggage.loading" class="loading">同步中…</div>
+          <div v-if="prep.luggage.error" class="empty-state">錯誤：{{ prep.luggage.error }}</div>
+
+          <div class="list" v-if="prep.luggage.items.length">
+            <div class="list-item" v-for="it in prep.luggage.items" :key="it.id">
+              <label class="todo">
+                <input type="checkbox" v-model="it.done" @change="togglePrepDone('luggage', it)" :disabled="!canWrite" />
+                <span :class="{ done: it.done }">{{ it.text }}</span>
+              </label>
+              <div style="width:64px; display:flex; justify-content:flex-end;">
+                <button class="btn btn-ghost btn-mini" @click="deletePrepItem('luggage', it)" :disabled="!canWrite">刪除</button>
               </div>
             </div>
-
-            <div v-else class="empty-state">尚無購物項目。</div>
           </div>
+
+          <div v-else class="empty-state">尚無行李項目。</div>
+        </div>
+
+        <div v-if="prepTab === 'shopping'" class="card">
+          <div class="card-title">🛍️ 購物清單</div>
+
+          <div class="inline-add">
+            <input class="field-input" v-model="prepInput.shopping" placeholder="新增購物項目..." :disabled="!canWrite" />
+            <button class="btn btn-primary" @click="addPrepItem('shopping')" :disabled="!canWrite">新增</button>
+          </div>
+
+          <div v-if="prep.shopping.loading" class="loading">同步中…</div>
+          <div v-if="prep.shopping.error" class="empty-state">錯誤：{{ prep.shopping.error }}</div>
+
+          <div class="list" v-if="prep.shopping.items.length">
+            <div class="list-item" v-for="it in prep.shopping.items" :key="it.id">
+              <label class="todo">
+                <input type="checkbox" v-model="it.done" @change="togglePrepDone('shopping', it)" :disabled="!canWrite" />
+                <span :class="{ done: it.done }">{{ it.text }}</span>
+              </label>
+              <div style="width:64px; display:flex; justify-content:flex-end;">
+                <button class="btn btn-ghost btn-mini" @click="deletePrepItem('shopping', it)" :disabled="!canWrite">刪除</button>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="empty-state">尚無購物項目。</div>
+        </div>
+
+        <div v-if="!canWrite" class="readonly-footnote">
+          只讀模式：清單內容可看但不可新增/勾選/刪除。
         </div>
       </section>
 
-      <!-- =============== 憑證頁 =============== -->
-      <section v-else-if="user && membershipChecked && isMember && currentPage === 'receipts'" class="page">
+      <!-- =============== 工具頁：即時匯率換算器（TWD / JPY） =============== -->
+      <section v-else-if="currentPage === 'tools'" class="page">
         <div class="card">
-          <div class="card-title">📎 憑證</div>
+          <div class="card-title">🧰 工具</div>
           <div class="card-subtitle">
-            可上傳 PDF 或圖片，並顯示憑證列表。<br />
-            儲存位置：<b>Storage: trips/{{ DEFAULT_TRIP_ID }}/receipts/</b>；Metadata：<b>trips/{{ DEFAULT_TRIP_ID }}/receipts</b>
+            即時匯率換算器（台幣 ↔ 日幣）。<br />
+            預設匯率：1 TWD = 0.2 JPY（若抓不到線上匯率時自動備援）。
           </div>
-
-          <div class="inline-add">
-            <input class="field-input" type="file" accept="application/pdf,image/*" @change="onReceiptFilePick" />
-            <button class="btn btn-primary" @click="uploadReceipt" :disabled="!receiptUpload.file || receiptUpload.loading">
-              {{ receiptUpload.loading ? "上傳中..." : "上傳" }}
-            </button>
-          </div>
-
-          <div v-if="receiptUpload.error" class="empty-state">上傳失敗：{{ receiptUpload.error }}</div>
         </div>
 
         <div class="card">
-          <div class="card-title">📄 憑證列表</div>
-          <div class="card-subtitle">
-            <span v-if="receiptsLoading">同步中…</span>
-            <span v-if="receiptsError">同步錯誤：{{ receiptsError }}</span>
+          <div class="card-title">💱 匯率換算器</div>
+
+          <div class="fx-row">
+            <label class="fx-field">
+              <div class="field-label">台幣 TWD</div>
+              <input class="field-input" type="number" v-model.number="fxTool.twd" @input="onFxToolTwdInput" placeholder="0" />
+            </label>
+
+            <div class="fx-eq">⇄</div>
+
+            <label class="fx-field">
+              <div class="field-label">日幣 JPY</div>
+              <input class="field-input" type="number" v-model.number="fxTool.jpy" @input="onFxToolJpyInput" placeholder="0" />
+            </label>
           </div>
 
-          <div v-if="receipts.length === 0 && !receiptsLoading" class="empty-state">
-            還沒有憑證。先把發票/訂單丟進來，之後報帳比較不會「憑空消失」。
+          <div class="fx-meta">
+            <div>匯率（JPY→TWD）：1：{{ fxToolRate.toFixed(4) }}</div>
+            <div class="fx-meta-sub">
+              更新：{{ fxTool.updatedAt || "尚未更新" }}
+            </div>
           </div>
 
-          <div v-else class="list">
-            <a
-              v-for="r in receipts"
-              :key="r.id"
-              class="list-item receipt-item"
-              :href="r.url"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <div class="li-main">
-                <div class="li-title">
-                  {{ r.name }}
-                  <span style="opacity:.65;">｜{{ r.uploaderName || "使用者" }}</span>
-                </div>
-                <div class="li-sub">
-                  {{ r.type }}｜{{ formatBytes(r.size || 0) }}｜{{ r.date || "" }}
-                </div>
-              </div>
-              <div class="li-amount">開啟</div>
-            </a>
+          <div class="row-right">
+            <button class="btn btn-secondary" @click="refreshFxTool">更新匯率</button>
           </div>
         </div>
       </section>
     </main>
 
-    <!-- 底部導覽 -->
     <nav class="bottom-nav bottom-nav-4">
       <button class="nav-item" :class="{ active: currentPage === 'itinerary' }" @click="currentPage = 'itinerary'">
         <div class="nav-icon">🗓️</div>
@@ -738,9 +762,9 @@
         <div class="nav-label">準備</div>
       </button>
 
-      <button class="nav-item" :class="{ active: currentPage === 'receipts' }" @click="currentPage = 'receipts'">
-        <div class="nav-icon">📎</div>
-        <div class="nav-label">憑證</div>
+      <button class="nav-item" :class="{ active: currentPage === 'tools' }" @click="currentPage = 'tools'">
+        <div class="nav-icon">🧰</div>
+        <div class="nav-label">工具</div>
       </button>
     </nav>
   </div>
@@ -765,21 +789,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 
-import {
-  getAuth,
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInAnonymously,
-  signOut,
-} from "firebase/auth";
-
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "firebase/storage";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 
 /* ===================== 固定預設行程 ===================== */
 const DEFAULT_TRIP_ID = "HM-8F3K2A";
@@ -799,7 +809,7 @@ const DEFAULT_AVATAR =
 
 const userLabel = computed(() => {
   if (!user.value) return "";
-  return user.value.displayName || (user.value.isAnonymous ? "匿名使用者" : "使用者");
+  return user.value.displayName || "使用者";
 });
 
 const userAvatar = computed(() => {
@@ -809,11 +819,40 @@ const userAvatar = computed(() => {
 
 const userMeta = computed(() => {
   if (!user.value) return "";
-  if (user.value.isAnonymous) return "匿名登入";
   return "Google 登入";
 });
 
-/* ===================== Presence（線上名單） ===================== */
+/* ===================== Membership gate（只有寫入功能需要） ===================== */
+const membershipChecked = ref(false);
+const isMember = ref(false);
+
+const canWrite = computed(() => !!user.value && membershipChecked.value && isMember.value);
+
+/* ===================== Members list（供 UI 成員 chips；只在成員狀態下載入） ===================== */
+const members = ref([]); // [{ uid, displayName }]
+const memberChips = computed(() => {
+  const names = members.value
+    .map((m) => String(m.displayName || "").trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b, "zh-Hant"));
+});
+
+async function loadMembers() {
+  if (!canWrite.value) return;
+  try {
+    const snap = await getDocs(collection(db, "trips", DEFAULT_TRIP_ID, "members"));
+    members.value = snap.docs.map((d) => {
+      const data = d.data();
+      return { uid: d.id, displayName: data.displayName || data.name || "" };
+    });
+  } catch (e) {
+    console.error("讀取 members 失敗：", e);
+    members.value = [];
+  }
+}
+
+/* ===================== Presence（線上名單：登入才啟用） ===================== */
 const presenceRaw = ref([]);
 const ONLINE_WINDOW_SEC = 120;
 let heartbeatTimer = null;
@@ -860,6 +899,7 @@ function stopHeartbeat() {
 }
 
 function subscribePresence() {
+  if (unsubPresence) unsubPresence();
   const q = query(collection(db, "presence"), orderBy("displayName", "asc"));
   unsubPresence = onSnapshot(q, (snap) => {
     presenceRaw.value = snap.docs.map((d) => {
@@ -874,36 +914,10 @@ function subscribePresence() {
   });
 }
 
-/* ===================== Membership gate ===================== */
-const membershipChecked = ref(false);
-const isMember = ref(false);
-
-/* ===================== Members list（供 UI 成員 chips） ===================== */
-const members = ref([]); // [{ uid, displayName }]
-const memberChips = computed(() => {
-  const names = members.value
-    .map((m) => String(m.displayName || "").trim())
-    .filter(Boolean);
-
-  return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b, "zh-Hant"));
-});
-
-async function loadMembers() {
-  if (!user.value || !isMember.value) return;
-
-  try {
-    const snap = await getDocs(collection(db, "trips", DEFAULT_TRIP_ID, "members"));
-    members.value = snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        uid: d.id,
-        displayName: data.displayName || data.name || "",
-      };
-    });
-  } catch (e) {
-    console.error("讀取 members 失敗：", e);
-    members.value = [];
-  }
+function unsubscribePresence() {
+  if (unsubPresence) unsubPresence();
+  unsubPresence = null;
+  presenceRaw.value = [];
 }
 
 /* ===================== Pages ===================== */
@@ -912,53 +926,59 @@ const pageTitle = computed(() => {
   if (currentPage.value === "itinerary") return "行程";
   if (currentPage.value === "accounting") return "記帳";
   if (currentPage.value === "prep") return "準備";
-  if (currentPage.value === "receipts") return "憑證";
+  if (currentPage.value === "tools") return "工具";
   return "";
 });
 
 /* ===================== Lifecycle ===================== */
-onMounted(() => {
-  subscribePresence();
+onMounted(async () => {
+  // ✅ 未登入也要能看：一進來先載入可公開閱讀的資料
+  await loadPlan();
+  await reloadExpenses();
+  await loadPrepAll();
+  await refreshFxTool();
 
   onAuthStateChanged(auth, async (u) => {
     user.value = u || null;
 
     membershipChecked.value = false;
     isMember.value = false;
+    members.value = [];
 
     if (!user.value) {
       stopHeartbeat();
-      plan.value = [];
-      activeDayId.value = null;
-      expenses.value = [];
-      clearPrepState();
-      receipts.value = [];
-      members.value = [];
+      unsubscribePresence();
+      // 未登入：只讀，不必查 members；資料仍維持可看
+      membershipChecked.value = true;
+      isMember.value = false;
+
+      // 記帳頁如果停在 entry，強制切回 detail（避免「只能看不能輸入」）
+      if (accountingTab.value === "entry") accountingTab.value = "detail";
       return;
     }
 
+    // 登入：presence + member 檢查
+    subscribePresence();
     await upsertPresence();
     startHeartbeat();
 
     await checkMembership();
 
-    if (isMember.value) {
+    if (canWrite.value) {
       await loadMembers();
-      await loadPlan();
-      await reloadExpenses();
-      await loadPrepAll();
-      await reloadReceipts();
-
       // 記帳 UI 預設成員：選自己（若在清單內），否則選第一個
       const me = userLabel.value;
-      uiMember.value = memberChips.value.includes(me) ? me : (memberChips.value[0] || me);
+      uiMember.value = memberChips.value.includes(me) ? me : memberChips.value[0] || me;
+    } else {
+      // 登入但非成員：維持只讀；把 entry tab 也鎖回 detail
+      if (accountingTab.value === "entry") accountingTab.value = "detail";
     }
   });
 });
 
 onBeforeUnmount(() => {
   stopHeartbeat();
-  if (unsubPresence) unsubPresence();
+  unsubscribePresence();
   unsubscribePrepAll();
 });
 
@@ -966,10 +986,6 @@ onBeforeUnmount(() => {
 async function loginGoogle() {
   const provider = new GoogleAuthProvider();
   await signInWithPopup(auth, provider);
-}
-
-async function loginAnon() {
-  await signInAnonymously(auth);
 }
 
 async function logout() {
@@ -996,34 +1012,12 @@ async function checkMembership() {
   }
 }
 
-async function recheckMembership() {
-  await checkMembership();
-  if (isMember.value) {
-    await loadMembers();
-    await loadPlan();
-    await reloadExpenses();
-    await loadPrepAll();
-    await reloadReceipts();
-  }
-}
-
-async function copyUid() {
-  try {
-    await navigator.clipboard.writeText(user.value.uid);
-    alert("已複製 UID！");
-  } catch {
-    alert("複製失敗，請手動選取 UID 複製。");
-  }
-}
-
 /* ===================== Plan：trips/.../plan ===================== */
 const plan = ref([]);
 const activeDayId = ref(null);
 const planLoading = ref(false);
 
 async function loadPlan() {
-  if (!user.value || !isMember.value) return;
-
   planLoading.value = true;
   try {
     const q = query(collection(db, "trips", DEFAULT_TRIP_ID, "plan"), orderBy("day", "asc"));
@@ -1044,14 +1038,13 @@ async function loadPlan() {
 
     if (plan.value.length > 0) {
       activeDayId.value = plan.value[0].id;
-      await backfillCityIfMissing();
+      await backfillCityIfMissing(); // 只會在可寫入時真正寫回
       await refreshWeatherForActiveDay();
     } else {
       activeDayId.value = null;
     }
   } catch (e) {
     console.error("讀取 plan 失敗：", e);
-    alert("讀取行程失敗（可能是 rules 擋住或網路問題）");
   } finally {
     planLoading.value = false;
   }
@@ -1062,26 +1055,159 @@ function toggleNote(dayId, idx) {
   if (dayObj) dayObj.events[idx].showNote = !dayObj.events[idx].showNote;
 }
 
-async function saveNote(dayId, idx) {
+function noteExists(event) {
+  return String(event?.note || "").trim().length > 0;
+}
+
+async function collapseAndSaveNote(dayId, idx) {
   const dayObj = plan.value.find((d) => d.id === dayId);
   if (!dayObj) return;
+
+  // 只讀：直接收合（不寫）
+  if (!canWrite.value) {
+    dayObj.events[idx].showNote = false;
+    return;
+  }
 
   try {
     const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
 
     await updateDoc(dayRef, { events: eventsToSave });
-
-    alert("筆記已儲存！");
     dayObj.events[idx].showNote = false;
   } catch (e) {
     console.error("儲存筆記失敗：", e);
-    alert("儲存失敗（請確認 rules：成員才可更新 plan）");
+    alert("儲存失敗（請確認你已被加入 members，且 rules 允許更新 plan）");
   }
 }
 
-function noteExists(event) {
-  return String(event?.note || "").trim().length > 0;
+async function clearAllNotes(dayId) {
+  if (!canWrite.value) return alert("只讀模式無法清除。請先登入並被加入 members。");
+  if (!confirm("確定要清除「這一天」所有筆記？此動作無法復原。")) return;
+
+  const dayObj = plan.value.find((d) => d.id === dayId);
+  if (!dayObj) return;
+
+  dayObj.events = (dayObj.events || []).map((e) => ({ ...e, note: "", showNote: false }));
+
+  try {
+    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
+    await updateDoc(dayRef, { events: eventsToSave });
+  } catch (e) {
+    console.error("清除筆記失敗：", e);
+    alert("清除失敗（可能是 rules 不允許 update）");
+  }
+}
+
+/* ===================== 行程編輯（長按） ===================== */
+const eventEditor = ref({
+  open: false,
+  dayId: "",
+  index: null, // null = 新增
+  isEdit: false,
+  form: { time: "", loc: "", stay: "" },
+});
+
+let pressTimer = null;
+
+function onEventPressStart(dayId, idx) {
+  if (!canWrite.value) return; // 只讀不啟動長按
+
+  clearTimeout(pressTimer);
+  pressTimer = setTimeout(() => {
+    openEventEditor(dayId, idx);
+  }, 500);
+}
+
+function onEventPressEnd() {
+  clearTimeout(pressTimer);
+  pressTimer = null;
+}
+
+function openEventEditor(dayId, idx) {
+  const dayObj = plan.value.find((d) => d.id === dayId);
+  if (!dayObj) return;
+
+  const isEdit = idx !== null && idx !== undefined;
+  const ev = isEdit ? dayObj.events[idx] : { time: "", loc: "", stay: "", note: "" };
+
+  eventEditor.value.open = true;
+  eventEditor.value.dayId = dayId;
+  eventEditor.value.index = isEdit ? idx : null;
+  eventEditor.value.isEdit = isEdit;
+  eventEditor.value.form = {
+    time: String(ev.time || ""),
+    loc: String(ev.loc || ""),
+    stay: String(ev.stay || ""),
+  };
+}
+
+function closeEventEditor() {
+  eventEditor.value.open = false;
+  eventEditor.value.dayId = "";
+  eventEditor.value.index = null;
+  eventEditor.value.isEdit = false;
+  eventEditor.value.form = { time: "", loc: "", stay: "" };
+}
+
+async function saveEventEdit() {
+  if (!canWrite.value) return alert("只讀模式無法儲存。請先登入並被加入 members。");
+
+  const dayId = eventEditor.value.dayId;
+  const idx = eventEditor.value.index;
+  const dayObj = plan.value.find((d) => d.id === dayId);
+  if (!dayObj) return;
+
+  const time = String(eventEditor.value.form.time || "").trim();
+  const loc = String(eventEditor.value.form.loc || "").trim();
+  const stay = String(eventEditor.value.form.stay || "").trim();
+
+  if (!loc) return alert("地點必填。");
+  if (!time) return alert("時間必填。");
+  if (!stay) return alert("停留時間必填。");
+
+  const newEv = { time, loc, stay, note: "" };
+
+  if (idx === null || idx === undefined) {
+    dayObj.events.push({ ...newEv, showNote: false });
+  } else {
+    const oldNote = String(dayObj.events[idx]?.note || "");
+    dayObj.events[idx] = { ...newEv, note: oldNote, showNote: false };
+  }
+
+  try {
+    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
+    await updateDoc(dayRef, { events: eventsToSave });
+    closeEventEditor();
+  } catch (e) {
+    console.error("儲存行程失敗：", e);
+    alert("儲存失敗（可能是 rules 不允許 update）");
+  }
+}
+
+async function deleteEvent() {
+  if (!canWrite.value) return alert("只讀模式無法刪除。請先登入並被加入 members。");
+  if (!eventEditor.value.isEdit) return;
+  if (!confirm("確定要刪除此行程？")) return;
+
+  const dayId = eventEditor.value.dayId;
+  const idx = eventEditor.value.index;
+  const dayObj = plan.value.find((d) => d.id === dayId);
+  if (!dayObj) return;
+
+  dayObj.events.splice(idx, 1);
+
+  try {
+    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
+    await updateDoc(dayRef, { events: eventsToSave });
+    closeEventEditor();
+  } catch (e) {
+    console.error("刪除行程失敗：", e);
+    alert("刪除失敗（可能是 rules 不允許 update）");
+  }
 }
 
 /* ===================== Honeymoon countdown ===================== */
@@ -1135,7 +1261,7 @@ function guessCityFromText(text) {
 }
 
 async function backfillCityIfMissing() {
-  if (!isMember.value) return;
+  if (!canWrite.value) return;
 
   const tasks = [];
   for (const day of plan.value) {
@@ -1171,20 +1297,16 @@ const weatherState = ref({
 });
 
 watch(activeDayId, async () => {
-  if (user.value && isMember.value && currentPage.value === "itinerary") {
+  if (currentPage.value === "itinerary") {
     await refreshWeatherForActiveDay();
   }
 });
 
 watch(currentPage, async (p) => {
-  if (!user.value || !isMember.value) return;
   if (p === "itinerary") await refreshWeatherForActiveDay();
-  if (p === "accounting") {
-    await reloadExpenses();
-    await loadMembers();
-  }
+  if (p === "accounting") await reloadExpenses();
   if (p === "prep") await loadPrepAll();
-  if (p === "receipts") await reloadReceipts();
+  if (p === "tools") await refreshFxTool();
 });
 
 async function refreshWeatherForActiveDay() {
@@ -1258,9 +1380,9 @@ function outfitAdvice(tMin, tMax, precipProb) {
 
   const needsUmbrella = isFiniteNumber(p) && p >= 40;
   const tempHint =
-    (isFiniteNumber(min) && min <= 8) ? "建議洋蔥式＋外套" :
-    (isFiniteNumber(min) && min <= 15) ? "薄外套/長袖剛好" :
-    (isFiniteNumber(max) && max >= 28) ? "短袖為主，注意防曬" :
+    isFiniteNumber(min) && min <= 8 ? "建議洋蔥式＋外套" :
+    isFiniteNumber(min) && min <= 15 ? "薄外套/長袖剛好" :
+    isFiniteNumber(max) && max >= 28 ? "短袖為主，注意防曬" :
     "舒適好走為主";
 
   return `${tempHint}${needsUmbrella ? "，記得帶傘。" : "。"}（鞋子：請選能走 15,000 步的那雙）`;
@@ -1271,31 +1393,36 @@ const expenses = ref(loadLocal("hm_expenses_cache", []));
 const expensesLoading = ref(false);
 const expensesError = ref("");
 
-// 記帳分頁（entry/detail）
-const accountingTab = ref("entry");
+const accountingTab = ref("detail");
 
-// Entry UI
 const uiMember = ref("");
 const uiPayMethod = ref("現金");
 const uiPlace = ref("");
 const uiItem = ref("");
 
-// 明細 filter：成員 + 日期
 const detailMemberFilter = ref("全體");
-const detailDateFilter = ref("全部"); // "全部" 或 "YYYY-MM-DD"
+const detailDateFilter = ref("全部");
 
-// ✅ 匯率：依日期抓 JPY->TWD（fallback 0.2）
+// ✅ 你指定的預設：台幣:日幣 = 0.2:1  => 1 JPY = 0.2 TWD
 const DEFAULT_FX_JPY_TO_TWD = 0.2;
 
-const fxJpyToTwd = ref(null); // number
-const fxCache = new Map(); // date -> rate
+// 這裡統一存「JPY -> TWD」匯率（1 JPY = ? TWD）
+const fxJpyToTwd = ref(null);
+const fxCache = new Map();
 
-const fxValue = computed(() => {
+// 1 JPY = ? TWD（若抓不到就用 0.2）
+const fxJpyToTwdValue = computed(() => {
   const v = Number(fxJpyToTwd.value);
   return Number.isFinite(v) && v > 0 ? v : DEFAULT_FX_JPY_TO_TWD;
 });
 
-// 匯率標籤：顯示用的日期（選全部就用今天）
+// 1 TWD = ? JPY（反推）
+const fxTwdToJpyValue = computed(() => {
+  const v = fxJpyToTwdValue.value;
+  return v > 0 ? 1 / v : 5; // v=0.2 => 5
+});
+
+
 const fxDateLabel = computed(() => {
   if (detailDateFilter.value === "全部") return new Date().toISOString().slice(0, 10);
   return detailDateFilter.value;
@@ -1309,31 +1436,8 @@ async function loadFxForDate(dateISO) {
     return;
   }
 
-  // 1) 先嘗試 Google Finance（用 r.jina.ai 取得純文字，通常可避開 CORS）
-  // 注意：Google Finance 不提供正式 JSON API，這是「盡力解析」；失敗就走備援。
   try {
-    const gfUrl = `https://r.jina.ai/https://www.google.com/finance/quote/JPY-TWD?hl=zh-TW`;
-    const res = await fetch(gfUrl);
-    if (res.ok) {
-      const txt = await res.text();
-
-      // 常見頁面中會出現的數字（例如：0.20xx），用較保守的正則抓第一個合理數值
-      // 若你發現抓到不對的數字，可再回來把 regex 調嚴格。
-      const m = txt.match(/(?:JPY|Japanese Yen)[^\d]{0,40}(\d+(?:\.\d+)?)/i) || txt.match(/\b0\.\d{2,6}\b/);
-      const rate = m ? Number(m[1] || m[0]) : NaN;
-
-      if (Number.isFinite(rate) && rate > 0) {
-        fxCache.set(dateISO, rate);
-        fxJpyToTwd.value = rate;
-        return;
-      }
-    }
-  } catch (e) {
-    console.warn("Google 匯率抓取失敗（改走備援）：", e);
-  }
-
-  // 2) 備援：exchangerate.host（你原本就有）
-  try {
+    // ✅ 改成抓「1 JPY = ? TWD」
     const url = `https://api.exchangerate.host/${dateISO}?base=JPY&symbols=TWD`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1346,15 +1450,15 @@ async function loadFxForDate(dateISO) {
     fxJpyToTwd.value = rate;
     return;
   } catch (e) {
-    console.error("備援匯率抓取也失敗：", e);
+    console.warn("匯率抓取失敗：", e);
   }
 
-  // 3) 最終 fallback：0.2
+  // ✅ 抓不到就用你指定預設
   fxJpyToTwd.value = DEFAULT_FX_JPY_TO_TWD;
 }
 
 
-// 在明細頁 & 切日期時，抓匯率
+
 watch([accountingTab, detailDateFilter], async () => {
   if (accountingTab.value !== "detail") return;
 
@@ -1376,12 +1480,10 @@ const expenseForm = ref({
 const approxTwd = computed(() => {
   const amt = Number(expenseForm.value.amount) || 0;
   if (expenseForm.value.currency === "TWD") return Math.round(amt);
-  return Math.round(amt * fxValue.value);
+  return Math.round(amt * fxJpyToTwdValue.value);
 });
 
 async function reloadExpenses() {
-  if (!user.value || !isMember.value) return;
-
   expensesLoading.value = true;
   expensesError.value = "";
 
@@ -1413,23 +1515,19 @@ async function reloadExpenses() {
   }
 }
 
-// ✅ 用「截圖 UI」送出：把（支付方式/地點/項目/成員）打包進 note
 async function addExpenseFromFancy() {
-  if (!user.value || !isMember.value) return alert("你尚未被加入行程，不能記帳");
+  if (!canWrite.value) return alert("只讀模式無法記帳。請先登入並被加入 members。");
   if (!expenseForm.value.date) return alert("請選日期");
 
   const amount = Number(expenseForm.value.amount);
   if (!isFiniteNumber(amount) || amount <= 0) return alert("金額要大於 0");
-
   if (String(uiItem.value || "").trim().length === 0) return alert("請填「消費項目」");
 
-  if (memberChips.value.length === 0) {
-    return alert("尚未取得成員名單（請先調整 Firestore rules：members read 需允許 isMember(tripId)）");
-  }
+  const memberName = (String(uiMember.value || "").trim() || userLabel.value || "使用者");
 
   const notePacked = packNote({
     pay: uiPayMethod.value,
-    member: uiMember.value,
+    member: memberName,
     place: uiPlace.value,
     item: uiItem.value,
   });
@@ -1441,11 +1539,10 @@ async function addExpenseFromFancy() {
     category: expenseForm.value.category,
     note: notePacked,
     uid: user.value.uid,
-    displayName: user.value.displayName || (user.value.isAnonymous ? "匿名使用者" : "使用者"),
+    displayName: user.value.displayName || "使用者",
     createdAt: serverTimestamp(),
   };
 
-  // optimistic
   const localId = `local_${Date.now()}`;
   expenses.value.unshift({ id: localId, ...payload, createdAt: new Date() });
   saveLocal("hm_expenses_cache", expenses.value);
@@ -1453,27 +1550,18 @@ async function addExpenseFromFancy() {
   try {
     await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, "expenses"), payload);
     await reloadExpenses();
-
-    // 送出後切到明細
     accountingTab.value = "detail";
   } catch (e) {
     expensesError.value = e?.message ? String(e.message) : "寫入失敗";
     alert("已先存本機，但雲端寫入失敗（請檢查 rules / 網路）");
   }
 
-  // reset UI
   expenseForm.value.amount = 0;
   uiPlace.value = "";
   uiItem.value = "";
   uiPayMethod.value = "現金";
-  // uiMember 保留
 }
 
-function fakeCamera() {
-  alert("相機按鈕已就位。若要真的上傳照片，我建議直接到「憑證」頁上傳，資料更一致。");
-}
-
-/* ===== 明細：依成員篩選 + 依日期篩選 + 依日期分組 ===== */
 const filteredExpensesForDetail = computed(() => {
   let list = expenses.value;
 
@@ -1494,10 +1582,7 @@ const filteredExpensesForDetail = computed(() => {
 });
 
 const expenseDates = computed(() => {
-  // 日期 chips：從「成員已篩選」後的資料抽日期
-  const dates = expenses.value
-    .map((e) => e.date)
-    .filter(Boolean);
+  const dates = expenses.value.map((e) => e.date).filter(Boolean);
   return Array.from(new Set(dates)).sort((a, b) => b.localeCompare(a));
 });
 
@@ -1521,7 +1606,6 @@ const groupedExpenses = computed(() => {
   return res;
 });
 
-/* ===== 總支出（跟篩選連動） ===== */
 const totalJpyFiltered = computed(() => {
   const sum = filteredExpensesForDetail.value.reduce((acc, e) => {
     if (e.currency === "JPY") return acc + (Number(e.amount) || 0);
@@ -1538,10 +1622,9 @@ const totalTwdFiltered = computed(() => {
 function expenseToTwd(e) {
   const amt = Number(e.amount) || 0;
   if (e.currency === "TWD") return Math.round(amt);
-  return Math.round(amt * fxValue.value);
+  return Math.round(amt * fxJpyToTwdValue.value);
 }
 
-/* ===== note pack/unpack（不改 schema） ===== */
 function packNote({ pay, member, place, item }) {
   const p = String(pay || "").trim() || "現金";
   const m = String(member || "").trim() || "";
@@ -1555,8 +1638,8 @@ function packNote({ pay, member, place, item }) {
 
 function parsePackedNote(note) {
   const s = String(note || "");
-  const m1 = s.match(/^\[([^\]]+)\]/);            // pay
-  const m2 = s.match(/^\[[^\]]+\]\[([^\]]+)\]/);  // member (optional)
+  const m1 = s.match(/^\[([^\]]+)\]/);
+  const m2 = s.match(/^\[[^\]]+\]\[([^\]]+)\]/);
   const pay = m1 ? m1[1] : "";
   const member = m2 ? m2[1] : "";
 
@@ -1566,15 +1649,14 @@ function parsePackedNote(note) {
   return {
     pay,
     member,
-    place: item ? (place || "") : "",
-    item: item ? (item || "") : (place || ""),
+    place: item ? place || "" : "",
+    item: item ? item || "" : place || "",
   };
 }
 
 function displayTitle(e) {
   const p = parsePackedNote(e.note);
-  const base = p.item || (e.note || "（無項目）");
-  return base;
+  return p.item || e.note || "（無項目）";
 }
 
 function displayMember(e) {
@@ -1608,7 +1690,7 @@ const expenseEditor = ref({
 
 function canEditExpense(e) {
   if (!user.value || !e) return false;
-  return e.uid === user.value.uid;
+  return canWrite.value && e.uid === user.value.uid;
 }
 
 function openExpenseEditor(e) {
@@ -1632,7 +1714,7 @@ function closeExpenseEditor() {
 async function saveExpenseEdit() {
   const origin = expenseEditor.value.origin;
   if (!origin) return;
-  if (!canEditExpense(origin)) return alert("你只能修改你自己建立的紀錄。");
+  if (!canEditExpense(origin)) return alert("你只能修改你自己建立的紀錄（且需為 members）。");
 
   const f = expenseEditor.value.form;
   if (!f.date) return alert("請選日期");
@@ -1660,7 +1742,7 @@ async function saveExpenseEdit() {
 async function deleteExpense() {
   const origin = expenseEditor.value.origin;
   if (!origin) return;
-  if (!canEditExpense(origin)) return alert("你只能刪除你自己建立的紀錄。");
+  if (!canEditExpense(origin)) return alert("你只能刪除你自己建立的紀錄（且需為 members）。");
   if (!confirm("確定要刪除此筆記帳？")) return;
 
   try {
@@ -1676,6 +1758,7 @@ async function deleteExpense() {
 }
 
 /* ===================== Prep checklists ===================== */
+const prepTab = ref("todo");
 const prepInput = ref({ todo: "", luggage: "", shopping: "" });
 
 const prep = ref({
@@ -1704,9 +1787,9 @@ function unsubscribePrepAll() {
 }
 
 async function loadPrepAll() {
-  if (!user.value || !isMember.value) return;
-
   unsubscribePrepAll();
+  clearPrepState();
+
   subscribePrepList("todo");
   subscribePrepList("luggage");
   subscribePrepList("shopping");
@@ -1753,7 +1836,7 @@ function subscribePrepList(kind) {
 }
 
 async function addPrepItem(kind) {
-  if (!user.value || !isMember.value) return;
+  if (!canWrite.value) return alert("只讀模式無法新增。請先登入並被加入 members。");
   const text = String(prepInput.value[kind] || "").trim();
   if (!text) return;
 
@@ -1763,7 +1846,7 @@ async function addPrepItem(kind) {
       text,
       done: false,
       uid: user.value.uid,
-      displayName: user.value.displayName || (user.value.isAnonymous ? "匿名使用者" : "使用者"),
+      displayName: user.value.displayName || "使用者",
       createdAt: serverTimestamp(),
     });
     prepInput.value[kind] = "";
@@ -1774,7 +1857,7 @@ async function addPrepItem(kind) {
 }
 
 async function togglePrepDone(kind, item) {
-  if (!user.value || !isMember.value) return;
+  if (!canWrite.value) return;
   try {
     const key = prepCollectionKey(kind);
     const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, key, item.id);
@@ -1786,7 +1869,7 @@ async function togglePrepDone(kind, item) {
 }
 
 async function deletePrepItem(kind, item) {
-  if (!user.value || !isMember.value) return;
+  if (!canWrite.value) return;
   if (!confirm("確定要刪除？")) return;
 
   try {
@@ -1799,95 +1882,83 @@ async function deletePrepItem(kind, item) {
   }
 }
 
-/* ===================== Receipts ===================== */
-const storage = getStorage();
+/* ===================== Tools：即時匯率換算器 ===================== */
+const fxTool = ref({
+  twd: 0,
+  jpy: 0,
+  updatedAt: "",
+  lock: "twd",
+});
 
-const receiptUpload = ref({ file: null, loading: false, error: "" });
+// ✅ 工具頁匯率：1 JPY = ? TWD（預設 0.2）
+const fxToolRate = ref(DEFAULT_FX_JPY_TO_TWD);
 
-const receipts = ref([]);
-const receiptsLoading = ref(false);
-const receiptsError = ref("");
 
-function onReceiptFilePick(ev) {
-  const f = ev?.target?.files?.[0] || null;
-  receiptUpload.value.file = f;
-  receiptUpload.value.error = "";
+function nowTimeLabel() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
 }
 
-async function uploadReceipt() {
-  if (!user.value || !isMember.value) return;
-  const f = receiptUpload.value.file;
-  if (!f) return;
+function onFxToolTwdInput() {
+  fxTool.value.lock = "twd";
+  const twd = Number(fxTool.value.twd) || 0;
 
-  const isPdf = f.type === "application/pdf";
-  const isImage = String(f.type || "").startsWith("image/");
-  if (!isPdf && !isImage) return alert("只支援 PDF 或圖片檔案。");
+  // ✅ twd -> jpy：jpy = twd / (TWD per JPY)
+  const rate = fxToolRate.value || DEFAULT_FX_JPY_TO_TWD;
+  fxTool.value.jpy = round2(rate > 0 ? twd / rate : twd / DEFAULT_FX_JPY_TO_TWD);
+}
 
-  receiptUpload.value.loading = true;
-  receiptUpload.value.error = "";
+function onFxToolJpyInput() {
+  fxTool.value.lock = "jpy";
+  const jpy = Number(fxTool.value.jpy) || 0;
 
+  // ✅ jpy -> twd：twd = jpy * (TWD per JPY)
+  const rate = fxToolRate.value || DEFAULT_FX_JPY_TO_TWD;
+  fxTool.value.twd = round2(jpy * rate);
+}
+
+
+function round2(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+async function refreshFxTool() {
   try {
-    const safeName = String(f.name || "receipt").replace(/[^\w.\-()\s]/g, "_");
-    const path = `trips/${DEFAULT_TRIP_ID}/receipts/${Date.now()}_${safeName}`;
+    // ✅ 抓「1 JPY = ? TWD」
+    const url = `https://api.exchangerate.host/latest?base=JPY&symbols=TWD`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
 
-    const sRef = storageRef(storage, path);
-    await uploadBytes(sRef, f);
+    const rate = Number(data?.rates?.TWD);
+    if (Number.isFinite(rate) && rate > 0) {
+      fxToolRate.value = rate;
+      fxTool.value.updatedAt = nowTimeLabel();
 
-    const url = await getDownloadURL(sRef);
+      // 依照最後輸入欄位重新計算另一邊
+      if (fxTool.value.lock === "jpy") onFxToolJpyInput();
+      else onFxToolTwdInput();
 
-    await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, "receipts"), {
-      name: safeName,
-      type: f.type || (isPdf ? "application/pdf" : "image/*"),
-      size: f.size || 0,
-      url,
-      storagePath: path,
-      uid: user.value.uid,
-      uploaderName: user.value.displayName || (user.value.isAnonymous ? "匿名使用者" : "使用者"),
-      uploadedAt: serverTimestamp(),
-      date: new Date().toISOString().slice(0, 10),
-    });
-
-    receiptUpload.value.file = null;
-    await reloadReceipts();
-    alert("上傳成功！");
+      return;
+    }
   } catch (e) {
-    console.error("上傳憑證失敗：", e);
-    receiptUpload.value.error = e?.message ? String(e.message) : "未知錯誤";
-  } finally {
-    receiptUpload.value.loading = false;
+    console.warn("工具頁匯率抓取失敗，使用預設值 0.2（1 JPY = 0.2 TWD）：", e);
   }
+
+  // ✅ 抓不到就用你指定預設
+  fxToolRate.value = DEFAULT_FX_JPY_TO_TWD;
+  fxTool.value.updatedAt = nowTimeLabel() + "（備援）";
+
+  if (fxTool.value.lock === "jpy") onFxToolJpyInput();
+  else onFxToolTwdInput();
 }
 
-async function reloadReceipts() {
-  if (!user.value || !isMember.value) return;
 
-  receiptsLoading.value = true;
-  receiptsError.value = "";
-
-  try {
-    const q = query(collection(db, "trips", DEFAULT_TRIP_ID, "receipts"), orderBy("uploadedAt", "desc"));
-    const snap = await getDocs(q);
-
-    receipts.value = snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        name: data.name || "",
-        type: data.type || "",
-        size: data.size || 0,
-        url: data.url || "",
-        storagePath: data.storagePath || "",
-        uploaderName: data.uploaderName || "",
-        date: data.date || "",
-        uploadedAt: data.uploadedAt || null,
-      };
-    });
-  } catch (e) {
-    receiptsError.value = e?.message ? String(e.message) : "未知錯誤";
-  } finally {
-    receiptsLoading.value = false;
-  }
-}
 
 /* ===================== Utils ===================== */
 function openNavigation(destination) {
@@ -1954,17 +2025,6 @@ function saveLocal(key, value) {
 
 function formatNumber(n) {
   return (Number(n) || 0).toLocaleString("en-US");
-}
-
-function formatBytes(bytes) {
-  const b = Number(bytes) || 0;
-  if (b < 1024) return `${b} B`;
-  const kb = b / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  const mb = kb / 1024;
-  if (mb < 1024) return `${mb.toFixed(1)} MB`;
-  const gb = mb / 1024;
-  return `${gb.toFixed(2)} GB`;
 }
 </script>
 
