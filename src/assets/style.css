@@ -55,6 +55,28 @@ body{
   margin:6px 0 14px 0;
 }
 .weather-left{ flex:1; min-width:0; }
+
+/* ✅ 天氣：溫度區塊移到同一行，右側對齊到 metrics（含日出）的右緣 */
+.weather-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+}
+
+.weather-top-left{
+  min-width:0;
+}
+
+.weather-temp{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  text-align:right;
+  flex:0 0 auto;
+}
+
+
 .weather-right{ width:110px; display:flex; flex-direction:column; align-items:flex-end; }
 
 .weather-city{ display:flex; gap:8px; align-items:center; font-weight:900; letter-spacing:.4px; opacity:.95; }
@@ -146,6 +168,14 @@ body{
   border-radius:16px;
   padding:12px;
 }
+
+.note-between-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
 .note-between-title{ font-weight:1000; font-size:12px; opacity:.8; }
 .note-between-body{
   margin-top:6px;
@@ -259,6 +289,11 @@ body{
 /* =============== Prep =============== */
 .checklist-grid{ display:grid; gap:12px; }
 .inline-add{ margin-top:10px; display:flex; gap:10px; align-items:center; }
+.inline-add .btn{
+  white-space: nowrap;   /* 文字不換行 => 不會變直排 */
+  flex: 0 0 auto;        /* 按鈕不被壓扁 */
+  min-width: 64px;       /* 給「新增」足夠寬度（可視需要調整 56~72） */
+}
 .list{ margin-top:10px; display:grid; gap:10px; }
 .list-item{
   display:flex; gap:10px; align-items:center;
@@ -665,18 +700,3 @@ body{
   outline:2px dashed rgba(36,90,79,.25);
 }
 
-.drag-handle {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  border: 2px solid rgba(0,0,0,.1);
-  background: #fff;
-  cursor: grab;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.drag-handle:active {
-  cursor: grabbing;
-}

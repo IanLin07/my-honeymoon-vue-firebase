@@ -39,23 +39,7 @@
       </div>
 
       <!-- 線上成員名單（只有登入才顯示） -->
-      <div class="presence-bar" v-if="user && presenceList.length">
-        <div class="presence-title">目前線上</div>
-        <div class="presence-list">
-          <div class="presence-item" v-for="p in presenceList" :key="p.id">
-            <img
-              class="presence-avatar"
-              :src="p.photoURL || DEFAULT_AVATAR"
-              :alt="p.displayName || '使用者'"
-              referrerpolicy="no-referrer"
-            />
-            <div class="presence-name">
-              {{ p.displayName || "使用者" }}
-              <span v-if="p.isMe" class="presence-badge">你</span>
-            </div>
-          </div>
-        </div>
-      </div>
+
     </header>
 
     <main class="app-main">
@@ -75,21 +59,41 @@
           </button>
         </div>
 
-        <div v-for="day in plan" :key="day.id" v-show="activeDayId === day.id" class="day-panel">
+        <div
+          v-for="day in plan"
+          :key="day.id"
+          v-show="activeDayId === day.id"
+          class="day-panel"
+          @touchstart="onDaySwipeStart($event)"
+          @touchmove="onDaySwipeMove($event)"
+          @touchend="onDaySwipeEnd"
+          @touchcancel="onDaySwipeEnd"
+        >
+
           <!-- ✅ 倒數：獨立區域、字體放大、放在天氣下方、行程上方 -->
           <div class="countdown-card" v-if="honeymoonCountdownText">
             <div class="countdown-big">{{ honeymoonCountdownText }}</div>
           </div>
           <div class="weather-card">
             <div class="weather-left">
-              <div class="weather-city">
-                <span class="pin">📍</span>
-                <span>{{ day.city || getDayCity(day) }}</span>
-              </div>
+              <!-- ✅ 左側資訊 + 右側溫度（同一行），溫度右緣會對齊 metrics 的右緣 -->
+              <div class="weather-top">
+                <div class="weather-top-left">
+                  <div class="weather-city">
+                    <span class="pin">📍</span>
+                    <span>{{ day.city || getDayCity(day) }}</span>
+                  </div>
 
-              <div class="weather-desc">
-                <span class="weather-title">{{ weatherState.statusText }}</span>
-                <span class="weather-emoji">{{ weatherState.statusEmoji }}</span>
+                  <div class="weather-desc">
+                    <span class="weather-title">{{ weatherState.statusText }}</span>
+                    <span class="weather-emoji">{{ weatherState.statusEmoji }}</span>
+                  </div>
+                </div>
+
+                <div class="weather-temp">
+                  <div class="temp-now">{{ weatherState.tNow }}°</div>
+                  <div class="temp-range">{{ weatherState.tMin }}° / {{ weatherState.tMax }}°</div>
+                </div>
               </div>
 
               <div class="weather-metrics">
@@ -115,18 +119,12 @@
                 </button>
               </div>
 
-
-
-
               <div v-if="weatherState.loading" class="weather-loading">天氣讀取中...</div>
               <div v-if="weatherState.error" class="weather-error">天氣讀取失敗：{{ weatherState.error }}</div>
             </div>
-
-            <div class="weather-right">
-              <div class="temp-now">{{ weatherState.tNow }}°</div>
-              <div class="temp-range">{{ weatherState.tMin }}° / {{ weatherState.tMax }}°</div>
-            </div>
           </div>
+
+
 
 
 
@@ -192,7 +190,23 @@
                   <div class="event-stay">⏱️ 停留 {{ event.stay }}</div>
                 </div>
 
-                ...
+                <div class="event-actions">
+                  <button
+                    class="btn btn-secondary btn-mini"
+                    type="button"
+                    @click.stop="openNavigation(event.loc)"
+                  >
+                    導航
+                  </button>
+
+                  <button
+                    class="btn btn-secondary btn-mini"
+                    type="button"
+                    @click.stop="toggleNote(day.id, idx)"
+                  >
+                    筆記
+                  </button>
+                </div>
               </div>
 
 
@@ -316,14 +330,21 @@
 
             <div class="row-right">
               <button class="btn btn-secondary" @click="closeEventEditor">關閉</button>
-              <button class="btn btn-primary" @click="saveEventEdit" :disabled="!canWrite">儲存</button>
-            </div>
 
-            <div class="row-right" style="margin-top:10px;">
-              <button class="btn btn-danger" @click="deleteEvent" :disabled="!canWrite || !eventEditor.isEdit">
+              <button class="btn btn-primary" @click="saveEventEdit" :disabled="!canWrite">
+                儲存
+              </button>
+
+              <button
+                class="btn btn-danger"
+                v-if="eventEditor.isEdit"
+                @click="deleteEvent"
+                :disabled="!canWrite"
+              >
                 刪除
               </button>
             </div>
+
 
             <div class="modal-hint">
               提醒：只有「登入且在 members」的成員可以儲存。
@@ -339,13 +360,13 @@
           <button
             class="seg-btn"
             :class="{ active: accountingTab === 'entry' }"
-            @click="accountingTab = 'entry'"
+            @click="goAccountingEntry"
             type="button"
-            :disabled="!canWrite"
             :title="!canWrite ? '只讀模式無法記帳，請先登入並加入 members' : ''"
           >
             🧾 記帳
           </button>
+
 
           <button
             class="seg-btn"
@@ -669,14 +690,24 @@
 
             <div class="row-right">
               <button class="btn btn-secondary" @click="closeExpenseEditor">關閉</button>
-              <button class="btn btn-primary" @click="saveExpenseEdit" :disabled="!canEditExpense(expenseEditor.origin)">儲存修改</button>
-            </div>
 
-            <div class="row-right" style="margin-top:10px;">
-              <button class="btn btn-danger" @click="deleteExpense" :disabled="!canEditExpense(expenseEditor.origin)">
-                刪除此筆
+              <button
+                class="btn btn-primary"
+                @click="saveExpenseEdit"
+                :disabled="!canEditExpense(expenseEditor.origin)"
+              >
+                儲存
+              </button>
+
+              <button
+                class="btn btn-danger"
+                @click="deleteExpense"
+                :disabled="!canEditExpense(expenseEditor.origin)"
+              >
+                刪除
               </button>
             </div>
+
 
             <div class="modal-hint">
               如果你「按儲存/刪除失敗」，通常是：未登入、不是本人、或 rules 不允許。
@@ -687,9 +718,7 @@
 
       <!-- =============== 準備頁（任何人可看；登入且成員才可新增/勾選/刪除） =============== -->
       <section v-else-if="currentPage === 'prep'" class="page">
-  <div class="card">
-    <div class="card-title">🎒 準備清單</div>
-  </div>
+
 
   <div class="segmented segmented-3">
     <button class="seg-btn" :class="{ active: prepTab === 'todo' }" @click="prepTab='todo'">✅ 待辦</button>
@@ -885,6 +914,9 @@ const DEFAULT_TRIP_ID = "HM-8F3K2A";
 
 /* ===================== Auth ===================== */
 const auth = getAuth();
+// ✅ Debug：讓你可以在瀏覽器 Console 用 window.__auth 直接查看 currentUser
+window.__auth = auth;
+window.__getUid = () => auth.currentUser?.uid;
 const user = ref(null);
 
 const DEFAULT_AVATAR =
@@ -1031,6 +1063,10 @@ onMounted(async () => {
   await refreshFxTool();
 
   onAuthStateChanged(auth, async (u) => {
+  // ✅ 這行放最上面：不管後面發生什麼錯，都一定先印出登入狀態
+  console.log("[AUTH] state =", u ? "SIGNED_IN" : "SIGNED_OUT", "uid =", u?.uid, "email =", u?.email);
+
+  try {
     user.value = u || null;
 
     membershipChecked.value = false;
@@ -1040,12 +1076,13 @@ onMounted(async () => {
     if (!user.value) {
       stopHeartbeat();
       unsubscribePresence();
-      // 未登入：只讀，不必查 members；資料仍維持可看
+
       membershipChecked.value = true;
       isMember.value = false;
 
-      // 記帳頁如果停在 entry，強制切回 detail（避免「只能看不能輸入」）
       if (accountingTab.value === "entry") accountingTab.value = "detail";
+
+      console.log("[AUTH] canWrite =", canWrite.value, "(signed out)");
       return;
     }
 
@@ -1056,16 +1093,21 @@ onMounted(async () => {
 
     await checkMembership();
 
+    console.log("[AUTH] membershipChecked =", membershipChecked.value, "isMember =", isMember.value, "canWrite =", canWrite.value);
+
     if (canWrite.value) {
       await loadMembers();
-      // 記帳 UI 預設成員：選自己（若在清單內），否則選第一個
       const me = userLabel.value;
       uiMember.value = memberChips.value.includes(me) ? me : memberChips.value[0] || me;
     } else {
-      // 登入但非成員：維持只讀；把 entry tab 也鎖回 detail
       if (accountingTab.value === "entry") accountingTab.value = "detail";
     }
+  } catch (e) {
+    // ✅ 關鍵：如果登入後任何一段 throw，你之前加在下面的 log 就永遠看不到
+    console.error("[AUTH] onAuthStateChanged crashed:", e);
+  }
   });
+
 });
 
 onBeforeUnmount(() => {
@@ -1108,6 +1150,72 @@ async function checkMembership() {
 const plan = ref([]);
 const activeDayId = ref(null);
 const planLoading = ref(false);
+
+/* ===================== Day swipe：左右滑切換天數 ===================== */
+// ✅ 只要「水平位移夠大」且「垂直位移不大」，就視為左右滑；避免下滑誤觸切天數
+const daySwipe = {
+  x0: 0,
+  y0: 0,
+  dx: 0,
+  dy: 0,
+  tracking: false,
+  locked: false, // 一旦判定是「垂直滑」，就鎖住，不再判定左右滑
+};
+
+function onDaySwipeStart(ev) {
+  const t = ev?.touches?.[0];
+  if (!t) return;
+
+  daySwipe.x0 = t.clientX;
+  daySwipe.y0 = t.clientY;
+  daySwipe.dx = 0;
+  daySwipe.dy = 0;
+  daySwipe.tracking = true;
+  daySwipe.locked = false;
+}
+
+function onDaySwipeMove(ev) {
+  if (!daySwipe.tracking) return;
+  const t = ev?.touches?.[0];
+  if (!t) return;
+
+  daySwipe.dx = t.clientX - daySwipe.x0;
+  daySwipe.dy = t.clientY - daySwipe.y0;
+
+  const adx = Math.abs(daySwipe.dx);
+  const ady = Math.abs(daySwipe.dy);
+
+  // ✅ 明顯在下滑/上滑：鎖住，避免左右切天數
+  if (!daySwipe.locked && ady > 18 && ady > adx) {
+    daySwipe.locked = true;
+  }
+}
+
+function onDaySwipeEnd() {
+  if (!daySwipe.tracking) return;
+
+  const adx = Math.abs(daySwipe.dx);
+  const ady = Math.abs(daySwipe.dy);
+
+  // reset tracking first (避免切換時殘留狀態)
+  daySwipe.tracking = false;
+
+  // ✅ 垂直滑或位移太小：不切換
+  if (daySwipe.locked) return;
+  if (adx < 60 || ady > 30) return;
+
+  // ✅ 找出目前 activeDay 的 index
+  const idx = plan.value.findIndex((d) => d.id === activeDayId.value);
+  if (idx === -1) return;
+
+  // dx < 0 表示往左滑：下一天；dx > 0 表示往右滑：上一天
+  if (daySwipe.dx < 0 && idx < plan.value.length - 1) {
+    activeDayId.value = plan.value[idx + 1].id;
+  } else if (daySwipe.dx > 0 && idx > 0) {
+    activeDayId.value = plan.value[idx - 1].id;
+  }
+}
+
 
 /* ===================== Event drag (only via handle) ===================== */
 const eventDrag = ref({
@@ -1318,71 +1426,75 @@ async function clearEventNote(dayId, idx) {
   }
 }*/
 
-/* ===================== 行程編輯（長按） ===================== */
+/* ===================== 行程編輯（點一下開啟；滑動不誤觸） ===================== */
 const eventEditor = ref({
   open: false,
   dayId: "",
   index: null, // null = 新增
   isEdit: false,
   form: { time: "", loc: "", stayH: 1, stayM: 0 },
-
 });
 
-let pressTimer = null;
-let pressStart = { x: 0, y: 0, moved: false, startedAt: 0 };
+// ✅ 用「按下→移動判斷→放開」：移動就不觸發；沒移動才視為點擊
+let pressStart = { x: 0, y: 0, moved: false, dayId: "", idx: null };
 
 function onEventPressStart(dayId, idx, ev) {
-  if (!canWrite.value) return;
-
-  // ✅ 若正在握把拖曳解鎖中，不要觸發長按編輯
+  // ✅ 允許任何人點開 Modal（只讀者也能看）
+  // ✅ 若正在握把拖曳解鎖中，不要觸發點擊開編輯
   if (eventDrag.value.armed || eventDrag.value.dragging) return;
-
-  clearTimeout(pressTimer);
-  pressStart.moved = false;
-  pressStart.startedAt = Date.now();
 
   const p = getPoint(ev);
   pressStart.x = p.x;
   pressStart.y = p.y;
-
-  pressTimer = setTimeout(() => {
-    // ✅ 必須「幾乎沒動」才開啟編輯
-    if (!pressStart.moved) openEventEditor(dayId, idx);
-  }, 500);
+  pressStart.moved = false;
+  pressStart.dayId = dayId;
+  pressStart.idx = idx;
 }
+
 
 function onEventPressMove(ev) {
-  if (!pressTimer) return;
-  const p = getPoint(ev);
+  if (!pressStart.dayId) return;
 
+  const p = getPoint(ev);
   const dx = Math.abs(p.x - pressStart.x);
   const dy = Math.abs(p.y - pressStart.y);
 
-  // ✅ 移動超過 10px 就視為滑動，取消長按
-  if (dx > 10 || dy > 10) {
-    pressStart.moved = true;
-    clearTimeout(pressTimer);
-    pressTimer = null;
-  }
+  // ✅ 超過門檻就視為「正在滑動/捲動」，避免誤觸
+  if (dx > 10 || dy > 10) pressStart.moved = true;
 }
 
-// 桌機：mousemove 也取消
+// 桌機：mousemove 同樣判斷（避免拖移時誤開）
 function onEventPressMouseMove(ev) {
-  if (!pressTimer) return;
+  if (!pressStart.dayId) return;
+
   const p = getPoint(ev);
   const dx = Math.abs(p.x - pressStart.x);
   const dy = Math.abs(p.y - pressStart.y);
-  if (dx > 6 || dy > 6) {
-    pressStart.moved = true;
-    clearTimeout(pressTimer);
-    pressTimer = null;
-  }
+
+  if (dx > 6 || dy > 6) pressStart.moved = true;
 }
 
 function onEventPressEnd() {
-  clearTimeout(pressTimer);
-  pressTimer = null;
+  if (!canWrite.value) {
+    pressStart.dayId = "";
+    return;
+  }
+
+  // ✅ 沒有移動才視為「點一下」→ 開啟編輯
+  if (!pressStart.moved && pressStart.dayId) {
+    openEventEditor(pressStart.dayId, pressStart.idx);
+  }
+
+  // reset
+  pressStart.dayId = "";
+  pressStart.idx = null;
+  pressStart.moved = false;
 }
+
+
+
+
+
 
 function getPoint(ev) {
   const t = ev?.touches?.[0] || ev?.changedTouches?.[0];
@@ -1679,6 +1791,15 @@ const expensesLoading = ref(false);
 const expensesError = ref("");
 
 const accountingTab = ref("detail");
+function goAccountingEntry() {
+  if (!canWrite.value) {
+    accountingTab.value = "detail";
+    alert("只讀模式無法記帳：請先 Google 登入且被加入 members。");
+    return;
+  }
+  accountingTab.value = "entry";
+}
+
 
 const uiMember = ref("");
 const uiPayMethod = ref("現金");
