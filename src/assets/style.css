@@ -64,11 +64,20 @@ body{
 
 .weather-metrics{
   margin-top:10px;
+  width: 100%;                 /* ✅ 確保吃滿容器寬度 */
   display:grid;
-  grid-template-columns:repeat(3,1fr);
+  grid-template-columns:repeat(3, minmax(0, 1fr)); /* ✅ 防止內容撐破，維持平均 */
   gap:8px;
 }
-.metric{ background:rgba(255,255,255,.18); border-radius:14px; padding:10px; text-align:center; }
+
+.metric{
+  min-width: 0;                /* ✅ 防止長字把格子撐歪 */
+  background:rgba(255,255,255,.18);
+  border-radius:14px;
+  padding:10px;
+  text-align:center;
+}
+
 .metric-value{ font-size:16px; font-weight:900; }
 .metric-label{ margin-top:4px; font-size:11px; opacity:.9; }
 
@@ -172,6 +181,14 @@ body{
 }
 .row-right{ margin-top:12px; display:flex; gap:10px; justify-content:flex-end; }
 
+.stay-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+
+
 /* =============== Buttons =============== */
 .btn{
   border:0;
@@ -219,7 +236,8 @@ body{
   display:grid;
   padding:10px 10px 14px 10px;
 }
-.bottom-nav-4{ grid-template-columns:repeat(4,1fr); }
+/*.bottom-nav-4{ grid-template-columns:repeat(4,1fr); }*/
+.bottom-nav-5{ grid-template-columns:repeat(5,1fr); }
 
 .nav-item{
   border:0;
@@ -580,3 +598,85 @@ body{
 }
 
 .event-card{ user-select:none; }
+
+/* =========================
+   Icon Button（小圖示按鈕）
+   ========================= */
+.icon-btn {
+  display: inline-flex;           /* 讓圖示置中 */
+  align-items: center;            /* 垂直置中 */
+  justify-content: center;        /* 水平置中 */
+  width: 34px;                    /* 按鈕尺寸：好按、不佔位 */
+  height: 34px;
+  border-radius: 10px;            /* 圓角一致 */
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #fff;               /* 乾淨背景 */
+  cursor: pointer;
+  padding: 0;                     /* 由 width/height 控制尺寸 */
+  transition: transform .08s ease, box-shadow .12s ease, background .12s ease;
+}
+
+.icon-btn:active {
+  transform: scale(0.97);         /* 點下去有回饋 */
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid rgba(0,0,0,0.35); /* 鍵盤可及性 */
+  outline-offset: 2px;
+}
+
+/* icon 大小 */
+.icon-btn .icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* 危險動作（清除） */
+.icon-danger {
+  color: #d32f2f;                 /* 圖示顏色（紅） */
+}
+
+.icon-danger:hover {
+  background: rgba(211,47,47,0.08); /* hover 淡紅底提示 */
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+
+/* =============== Prep drag handle =============== */
+.drag-handle{
+  width:32px;
+  height:34px;
+  border-radius:12px;
+  border:2px solid rgba(0,0,0,.08);
+  background:rgba(255,255,255,.7);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:1000;
+  line-height:1;
+  opacity:.75;
+  cursor:grab;
+  user-select:none;
+}
+.drag-handle:active{ cursor:grabbing; transform:scale(.98); }
+.drag-handle:disabled{ opacity:.35; cursor:not-allowed; }
+
+.list-item.dragging{
+  opacity:.55;
+  outline:2px dashed rgba(36,90,79,.25);
+}
+
+.drag-handle {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 2px solid rgba(0,0,0,.1);
+  background: #fff;
+  cursor: grab;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}

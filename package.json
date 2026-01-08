@@ -3,12 +3,21 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "deploy": "npm run build && gh-pages -d dist -m \"deploy: update\""
-  },
+"scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "preview": "vite preview",
+
+  "deploy": "npm run build && gh-pages -d dist -m \"deploy: update\"",
+
+  "predeploy": "node -e \"const {execSync}=require('child_process'); const s=execSync('git status --porcelain=v2 --branch',{encoding:'utf8'}); if(/rebase in progress|no branch|detached|REBASING/i.test(execSync('git status',{encoding:'utf8'}))){ console.error('\\n[STOP] 你目前在 rebase / detached HEAD 狀態，請先完成：git rebase --continue 或放棄：git rebase --abort\\n'); process.exit(1);} if(!s.includes('branch.head main')){ console.error('\\n[STOP] 你目前不在 main 分支，請先：git checkout main\\n'); process.exit(1);} \"",
+
+  "sync": "git fetch origin && git pull --rebase origin main",
+
+  "ship": "npm run predeploy && npm run sync && git push origin main && npm run deploy",
+
+  "ship:force": "npm run predeploy && npm run sync && git push origin main && npm run build && gh-pages -d dist -m \"deploy: update\" --dotfiles"
+},
   "dependencies": {
     "firebase": "^12.7.0",
     "firebase-admin": "^13.6.0",

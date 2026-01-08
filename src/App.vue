@@ -76,6 +76,10 @@
         </div>
 
         <div v-for="day in plan" :key="day.id" v-show="activeDayId === day.id" class="day-panel">
+          <!-- ✅ 倒數：獨立區域、字體放大、放在天氣下方、行程上方 -->
+          <div class="countdown-card" v-if="honeymoonCountdownText">
+            <div class="countdown-big">{{ honeymoonCountdownText }}</div>
+          </div>
           <div class="weather-card">
             <div class="weather-left">
               <div class="weather-city">
@@ -105,15 +109,14 @@
                 </div>
               </div>
 
-              <div class="outfit-card">
-                <div class="outfit-icon">👕</div>
-                <div class="outfit-text">
-                  <div class="outfit-title">穿搭建議</div>
-                  <div class="outfit-desc">
-                    {{ outfitAdvice(weatherState.tMin, weatherState.tMax, weatherState.precipProb) }}
-                  </div>
-                </div>
+              <div class="row-right" style="margin-top:10px;">
+                <button class="btn btn-secondary btn-mini" @click="manualRefreshWeatherAndFx">
+                  手動更新天氣/匯率
+                </button>
               </div>
+
+
+
 
               <div v-if="weatherState.loading" class="weather-loading">天氣讀取中...</div>
               <div v-if="weatherState.error" class="weather-error">天氣讀取失敗：{{ weatherState.error }}</div>
@@ -125,18 +128,13 @@
             </div>
           </div>
 
-          <!-- ✅ 倒數：獨立區域、字體放大、放在天氣下方、行程上方 -->
-          <div class="countdown-card" v-if="honeymoonCountdownText">
-            <div class="countdown-big">{{ honeymoonCountdownText }}</div>
-            <div class="countdown-sub">（以第 1 天日期為基準）</div>
-          </div>
+
 
           <div class="day-head">
             <h2 class="day-title">📅 第 {{ day.day }} 天（{{ day.date }}）</h2>
 
             <div class="day-head-actions" v-if="canWrite">
               <button class="btn btn-secondary btn-mini" @click="openEventEditor(day.id, null)">＋ 新增行程</button>
-              <button class="btn btn-danger btn-mini" @click="clearAllNotes(day.id)">清除全部筆記</button>
             </div>
 
             <div class="day-head-actions" v-else>
@@ -149,14 +147,44 @@
           <div v-for="(event, idx) in day.events" :key="idx">
             <div
               class="event-card"
-              @touchstart="onEventPressStart(day.id, idx)"
+              :draggable="canWrite && eventDrag.armed && eventDrag.dayId === day.id && eventDrag.fromIdx === idx"
+              :class="{ dragging: eventDrag.dragging && eventDrag.dayId === day.id && eventDrag.draggingIdx === idx }"
+              @dragstart="onEventDragStart(day.id, idx, $event)"
+              @dragover="onEventDragOver(day.id, idx, $event)"
+              @drop="onEventDrop(day.id, idx, $event)"
+              @dragend="onEventDragEnd"
+              @touchstart="onEventPressStart(day.id, idx, $event)"
+              @touchmove="onEventPressMove($event)"
               @touchend="onEventPressEnd"
               @touchcancel="onEventPressEnd"
-              @mousedown="onEventPressStart(day.id, idx)"
+              @mousedown="onEventPressStart(day.id, idx, $event)"
+              @mousemove="onEventPressMouseMove($event)"
               @mouseup="onEventPressEnd"
               @mouseleave="onEventPressEnd"
             >
+
               <div class="event-row">
+                <!-- ✅ 拖曳握把：按住才可拖，不觸發長按編輯 -->
+                <button
+                  class="drag-handle"
+                  type="button"
+                  v-if="canWrite"
+                  @pointerdown.stop.prevent="armEventDrag(day.id, idx)"
+                  @pointerup.stop.prevent="disarmEventDrag"
+                  @pointercancel.stop.prevent="disarmEventDrag"
+                  @touchstart.stop.prevent="armEventDrag(day.id, idx)"
+                  @touchend.stop.prevent="disarmEventDrag"
+                  aria-label="長按拖曳行程排序"
+                  title="長按拖曳行程排序"
+                >
+                  <svg class="drag-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M10 4h4v2h-4V4zm0 7h4v2h-4v-2zm0 7h4v2h-4v-2z"
+                    />
+                  </svg>
+                </button>
+
                 <div class="event-time">{{ event.time }}</div>
 
                 <div class="event-body">
@@ -164,11 +192,9 @@
                   <div class="event-stay">⏱️ 停留 {{ event.stay }}</div>
                 </div>
 
-                <div class="event-actions" v-if="!event.showNote">
-                  <button class="btn btn-secondary" @click.stop="openNavigation(event.loc)">導航</button>
-                  <button class="btn btn-primary" @click.stop="toggleNote(day.id, idx)">筆記</button>
-                </div>
+                ...
               </div>
+
 
               <div v-if="event.showNote" class="note-panel">
                 <textarea
@@ -179,11 +205,30 @@
                 ></textarea>
 
                 <div class="note-actions">
-                  <!-- ✅ 整合：按「收合」＝自動儲存 + 收合，不彈窗 -->
+                  <!-- ✅ 清除本行程筆記（在展開狀態也能一鍵清） -->
+                  <button
+                    v-if="canWrite"
+                    class="icon-btn icon-danger"
+                    type="button"
+                    title="清除本行程筆記"
+                    aria-label="清除本行程筆記"
+                    @click.stop="clearEventNote(day.id, idx)"
+                  >
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        fill="currentColor"
+                        d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 7h2v9h-2v-9zm4 0h2v9h-2v-9zM7 10h2v9H7v-9zm1-1h10l-1 13H9L8 9z"
+                      />
+                    </svg>
+                  </button>
+
+
+                  <!-- ✅ 收合＝自動儲存 + 收合 -->
                   <button class="btn btn-secondary" @click.stop="collapseAndSaveNote(day.id, idx)">
                     收合
                   </button>
                 </div>
+
 
                 <div v-if="!canWrite" class="readonly-hint" style="margin-top:8px;">
                   只讀模式：筆記可看但不可改。
@@ -192,9 +237,30 @@
             </div>
 
             <div v-if="noteExists(event) && !event.showNote" class="note-between">
-              <div class="note-between-title">📝 筆記</div>
+              <div class="note-between-head">
+                <div class="note-between-title">📝 筆記</div>
+
+                <!-- ✅ 刪除筆記圖示固定在最右 -->
+                <button
+                  v-if="canWrite"
+                  class="icon-btn icon-danger"
+                  type="button"
+                  title="清除本行程筆記"
+                  aria-label="清除本行程筆記"
+                  @click.stop="clearEventNote(day.id, idx)"
+                >
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 7h2v9h-2v-9zm4 0h2v9h-2v-9zM7 10h2v9H7v-9zm1-1h10l-1 13H9L8 9z"
+                    />
+                  </svg>
+                </button>
+              </div>
+
               <div class="note-between-body">{{ event.note }}</div>
             </div>
+
           </div>
 
           <div v-if="!day.events || day.events.length === 0" class="empty-state">
@@ -219,13 +285,28 @@
             <div class="form-grid" style="margin-top:10px;">
               <label class="field">
                 <div class="field-label">時間</div>
-                <input class="field-input" v-model="eventEditor.form.time" :disabled="!canWrite" placeholder="例如：10:30" />
+                <input
+                  class="field-input"
+                  type="time"
+                  v-model="eventEditor.form.time"
+                  :disabled="!canWrite"
+                />
               </label>
 
               <label class="field">
                 <div class="field-label">停留</div>
-                <input class="field-input" v-model="eventEditor.form.stay" :disabled="!canWrite" placeholder="例如：01時00分" />
+
+                <div class="stay-grid">
+                  <select class="field-input" v-model.number="eventEditor.form.stayH" :disabled="!canWrite">
+                    <option v-for="h in 24" :key="h-1" :value="h-1">{{ String(h-1).padStart(2,'0') }} 時</option>
+                  </select>
+
+                  <select class="field-input" v-model.number="eventEditor.form.stayM" :disabled="!canWrite">
+                    <option v-for="m in [0,10,20,30,40,50]" :key="m" :value="m">{{ String(m).padStart(2,'0') }} 分</option>
+                  </select>
+                </div>
               </label>
+
 
               <label class="field field-span">
                 <div class="field-label">地點</div>
@@ -322,7 +403,7 @@
             <div class="acc-grid-2">
               <div class="acc-field">
                 <div class="acc-label">＊金額</div>
-                <input class="acc-input" type="number" v-model.number="expenseForm.amount" placeholder="0" :disabled="!canWrite" />
+                <input class="acc-input" type="number" v-model="expenseForm.amount" placeholder="" :disabled="!canWrite" />
               </div>
 
               <div class="acc-field">
@@ -345,11 +426,9 @@
             <!-- 地點 -->
             <div class="acc-field">
               <div class="acc-label">地點（選填）</div>
-              <div class="acc-with-icon">
-                <span class="acc-icon">📍</span>
-                <input class="acc-input" v-model="uiPlace" placeholder="例如：便利商店" :disabled="!canWrite" />
-              </div>
+              <input class="acc-input" v-model="uiPlace" placeholder="例如：便利商店" :disabled="!canWrite" />
             </div>
+
 
             <!-- 消費項目（移除拍照按鈕） -->
             <div class="acc-field">
@@ -608,102 +687,78 @@
 
       <!-- =============== 準備頁（任何人可看；登入且成員才可新增/勾選/刪除） =============== -->
       <section v-else-if="currentPage === 'prep'" class="page">
-        <div class="card">
-          <div class="card-title">🎒 準備清單</div>
-          <div class="card-subtitle">
-            三個分頁：待辦（Todo）、行李清單、購物清單。<br />
-            未登入可看；登入且是成員才可新增/勾選/刪除。
-          </div>
-        </div>
+  <div class="card">
+    <div class="card-title">🎒 準備清單</div>
+  </div>
 
-        <div class="segmented segmented-3">
-          <button class="seg-btn" :class="{ active: prepTab === 'todo' }" @click="prepTab='todo'" type="button">✅ 待辦</button>
-          <button class="seg-btn" :class="{ active: prepTab === 'luggage' }" @click="prepTab='luggage'" type="button">🧳 行李</button>
-          <button class="seg-btn" :class="{ active: prepTab === 'shopping' }" @click="prepTab='shopping'" type="button">🛍️ 購物</button>
-        </div>
+  <div class="segmented segmented-3">
+    <button class="seg-btn" :class="{ active: prepTab === 'todo' }" @click="prepTab='todo'">✅ 待辦</button>
+    <button class="seg-btn" :class="{ active: prepTab === 'luggage' }" @click="prepTab='luggage'">🧳 行李</button>
+    <button class="seg-btn" :class="{ active: prepTab === 'shopping' }" @click="prepTab='shopping'">🛍️ 購物</button>
+  </div>
 
-        <div v-if="prepTab === 'todo'" class="card">
-          <div class="card-title">✅ 待辦清單（Todo）</div>
+  <!-- 共用清單 -->
+  <div class="card">
+    <div class="inline-add">
+      <input
+        class="field-input"
+        v-model="prepInput[prepTab]"
+        :placeholder="`新增${prepTabLabel}`"
+        :disabled="!canWrite"
+      />
+      <button class="btn btn-primary" @click="addPrepItem(prepTab)" :disabled="!canWrite">
+        新增
+      </button>
+    </div>
 
-          <div class="inline-add">
-            <input class="field-input" v-model="prepInput.todo" placeholder="新增待辦..." :disabled="!canWrite" />
-            <button class="btn btn-primary" @click="addPrepItem('todo')" :disabled="!canWrite">新增</button>
-          </div>
+    <div class="list" v-if="prep[prepTab].items.length">
+      <div
+        class="list-item"
+        v-for="it in sortedPrepItems(prepTab)"
+        :key="it.id"
+        :draggable="canWrite && prepDrag.armedId === it.id"
+        :class="{ dragging: prepDrag.draggingId === it.id }"
+        @dragstart="onPrepDragStart(prepTab, it, $event)"
+        @dragover="onPrepDragOver(prepTab, it, $event)"
+        @drop="onPrepDrop(prepTab, it, $event)"
+        @dragend="onPrepDragEnd"
+      >
+        <!-- ✅ 只能長按握把才可拖曳 -->
+        <button
+          class="drag-handle"
+          type="button"
+          :disabled="!canWrite"
+          @pointerdown.stop.prevent="armPrepDrag(it.id)"
+          @pointerup.stop.prevent="disarmPrepDrag"
+          @pointercancel.stop.prevent="disarmPrepDrag"
+          @touchstart.stop.prevent="armPrepDrag(it.id)"
+          @touchend.stop.prevent="disarmPrepDrag"
+          aria-label="長按拖曳排序"
+          title="長按拖曳排序"
+        >
+          <!-- 握把圖示（和行程頁共用同一個） -->
+          <svg class="drag-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M10 4h4v2h-4V4zm0 7h4v2h-4v-2zm0 7h4v2h-4v-2z"
+            />
+          </svg>
+        </button>
 
-          <div v-if="prep.todo.loading" class="loading">同步中…</div>
-          <div v-if="prep.todo.error" class="empty-state">錯誤：{{ prep.todo.error }}</div>
+        <label class="todo">
+          <input type="checkbox" v-model="it.done" @change="togglePrepDone(prepTab, it)" />
+          <span :class="{ done: it.done }">{{ it.text }}</span>
+        </label>
 
-          <div class="list" v-if="prep.todo.items.length">
-            <div class="list-item" v-for="it in prep.todo.items" :key="it.id">
-              <label class="todo">
-                <input type="checkbox" v-model="it.done" @change="togglePrepDone('todo', it)" :disabled="!canWrite" />
-                <span :class="{ done: it.done }">{{ it.text }}</span>
-              </label>
-              <div style="width:64px; display:flex; justify-content:flex-end;">
-                <button class="btn btn-ghost btn-mini" @click="deletePrepItem('todo', it)" :disabled="!canWrite">刪除</button>
-              </div>
-            </div>
-          </div>
+        <button class="btn btn-ghost btn-mini" @click="deletePrepItem(prepTab, it)">刪除</button>
+      </div>
 
-          <div v-else class="empty-state">尚無待辦事項。</div>
-        </div>
+    </div>
 
-        <div v-if="prepTab === 'luggage'" class="card">
-          <div class="card-title">🧳 行李清單</div>
+    <div v-else class="empty-state">尚無項目</div>
+  </div>
+</section>
 
-          <div class="inline-add">
-            <input class="field-input" v-model="prepInput.luggage" placeholder="新增行李..." :disabled="!canWrite" />
-            <button class="btn btn-primary" @click="addPrepItem('luggage')" :disabled="!canWrite">新增</button>
-          </div>
-
-          <div v-if="prep.luggage.loading" class="loading">同步中…</div>
-          <div v-if="prep.luggage.error" class="empty-state">錯誤：{{ prep.luggage.error }}</div>
-
-          <div class="list" v-if="prep.luggage.items.length">
-            <div class="list-item" v-for="it in prep.luggage.items" :key="it.id">
-              <label class="todo">
-                <input type="checkbox" v-model="it.done" @change="togglePrepDone('luggage', it)" :disabled="!canWrite" />
-                <span :class="{ done: it.done }">{{ it.text }}</span>
-              </label>
-              <div style="width:64px; display:flex; justify-content:flex-end;">
-                <button class="btn btn-ghost btn-mini" @click="deletePrepItem('luggage', it)" :disabled="!canWrite">刪除</button>
-              </div>
-            </div>
-          </div>
-
-          <div v-else class="empty-state">尚無行李項目。</div>
-        </div>
-
-        <div v-if="prepTab === 'shopping'" class="card">
-          <div class="card-title">🛍️ 購物清單</div>
-
-          <div class="inline-add">
-            <input class="field-input" v-model="prepInput.shopping" placeholder="新增購物項目..." :disabled="!canWrite" />
-            <button class="btn btn-primary" @click="addPrepItem('shopping')" :disabled="!canWrite">新增</button>
-          </div>
-
-          <div v-if="prep.shopping.loading" class="loading">同步中…</div>
-          <div v-if="prep.shopping.error" class="empty-state">錯誤：{{ prep.shopping.error }}</div>
-
-          <div class="list" v-if="prep.shopping.items.length">
-            <div class="list-item" v-for="it in prep.shopping.items" :key="it.id">
-              <label class="todo">
-                <input type="checkbox" v-model="it.done" @change="togglePrepDone('shopping', it)" :disabled="!canWrite" />
-                <span :class="{ done: it.done }">{{ it.text }}</span>
-              </label>
-              <div style="width:64px; display:flex; justify-content:flex-end;">
-                <button class="btn btn-ghost btn-mini" @click="deletePrepItem('shopping', it)" :disabled="!canWrite">刪除</button>
-              </div>
-            </div>
-          </div>
-
-          <div v-else class="empty-state">尚無購物項目。</div>
-        </div>
-
-        <div v-if="!canWrite" class="readonly-footnote">
-          只讀模式：清單內容可看但不可新增/勾選/刪除。
-        </div>
-      </section>
 
       <!-- =============== 工具頁：即時匯率換算器（TWD / JPY） =============== -->
       <section v-else-if="currentPage === 'tools'" class="page">
@@ -744,9 +799,38 @@
           </div>
         </div>
       </section>
+      <!-- =============== 備用頁（美食 / 地點） =============== -->
+      <section v-else-if="currentPage === 'backup'" class="page">
+        <div class="card">
+          <div class="card-title">🧷 備用</div>
+          <div class="card-subtitle">把「想去但不一定排得進去」的點先收這裡，臨機應變很省腦。</div>
+        </div>
+
+        <div class="segmented">
+          <button class="seg-btn" :class="{ active: backupTab === 'food' }" @click="backupTab='food'" type="button">
+            🍜 美食
+          </button>
+          <button class="seg-btn" :class="{ active: backupTab === 'places' }" @click="backupTab='places'" type="button">
+            📍 地點
+          </button>
+        </div>
+
+        <div v-if="backupTab === 'food'" class="card">
+          <div class="card-title">🍜 美食</div>
+          <div class="card-subtitle">先放口袋名單：店名 / 分店 / 想吃品項 / 排隊預估。</div>
+          <div class="empty-state">（先做頁面骨架；若你要可新增/排序/同步 Firebase，我可以下一步幫你接資料結構。）</div>
+        </div>
+
+        <div v-else class="card">
+          <div class="card-title">📍 地點</div>
+          <div class="card-subtitle">先放景點/商店：地址 / 營業時間 / 距離備註。</div>
+          <div class="empty-state">（先做頁面骨架；需要我幫你做「可點開 Google Maps」也很快。）</div>
+        </div>
+      </section>
+
     </main>
 
-    <nav class="bottom-nav bottom-nav-4">
+    <nav class="bottom-nav bottom-nav-5">
       <button class="nav-item" :class="{ active: currentPage === 'itinerary' }" @click="currentPage = 'itinerary'">
         <div class="nav-icon">🗓️</div>
         <div class="nav-label">行程</div>
@@ -766,6 +850,11 @@
         <div class="nav-icon">🧰</div>
         <div class="nav-label">工具</div>
       </button>
+      <button class="nav-item" :class="{ active: currentPage === 'backup' }" @click="currentPage = 'backup'">
+        <div class="nav-icon">🧷</div>
+        <div class="nav-label">備用</div>
+      </button>
+
     </nav>
   </div>
 </template>
@@ -922,11 +1011,14 @@ function unsubscribePresence() {
 
 /* ===================== Pages ===================== */
 const currentPage = ref("itinerary");
+const backupTab = ref("food"); // food | places
+
 const pageTitle = computed(() => {
   if (currentPage.value === "itinerary") return "行程";
   if (currentPage.value === "accounting") return "記帳";
   if (currentPage.value === "prep") return "準備";
   if (currentPage.value === "tools") return "工具";
+  if (currentPage.value === "backup") return "備用";
   return "";
 });
 
@@ -1017,6 +1109,99 @@ const plan = ref([]);
 const activeDayId = ref(null);
 const planLoading = ref(false);
 
+/* ===================== Event drag (only via handle) ===================== */
+const eventDrag = ref({
+  armed: false,
+  dayId: "",
+  fromIdx: null,
+  dragging: false,
+  draggingIdx: null,
+});
+
+let eventArmTimer = null;
+
+function armEventDrag(dayId, idx) {
+  if (!canWrite.value) return;
+  clearTimeout(eventArmTimer);
+
+  // ✅ 長按 180ms 解鎖拖曳
+  eventArmTimer = setTimeout(() => {
+    eventDrag.value.armed = true;
+    eventDrag.value.dayId = dayId;
+    eventDrag.value.fromIdx = idx;
+  }, 180);
+}
+
+function disarmEventDrag() {
+  clearTimeout(eventArmTimer);
+  eventArmTimer = null;
+  eventDrag.value.armed = false;
+  eventDrag.value.dayId = "";
+  eventDrag.value.fromIdx = null;
+}
+
+function onEventDragStart(dayId, idx, ev) {
+  if (!canWrite.value) return ev?.preventDefault?.();
+  if (!eventDrag.value.armed || eventDrag.value.dayId !== dayId || eventDrag.value.fromIdx !== idx) {
+    return ev?.preventDefault?.();
+  }
+
+  eventDrag.value.dragging = true;
+  eventDrag.value.draggingIdx = idx;
+
+  try {
+    ev.dataTransfer.effectAllowed = "move";
+    ev.dataTransfer.setData("text/plain", String(idx));
+  } catch {}
+}
+
+function onEventDragOver(dayId, idx, ev) {
+  if (!canWrite.value) return;
+  if (!eventDrag.value.dragging || eventDrag.value.dayId !== dayId) return;
+  ev.preventDefault();
+}
+
+async function onEventDrop(dayId, idx, ev) {
+  if (!canWrite.value) return;
+  if (!eventDrag.value.dragging || eventDrag.value.dayId !== dayId) return;
+
+  ev.preventDefault();
+
+  const fromIdx = eventDrag.value.fromIdx;
+  const toIdx = idx;
+  if (fromIdx === null || fromIdx === undefined) return;
+  if (fromIdx === toIdx) return;
+
+  const dayObj = plan.value.find((d) => d.id === dayId);
+  if (!dayObj || !Array.isArray(dayObj.events)) return;
+
+  const newEvents = [...dayObj.events];
+  const [moved] = newEvents.splice(fromIdx, 1);
+  newEvents.splice(toIdx, 0, moved);
+
+  // ✅ 先更新畫面
+  dayObj.events = newEvents;
+
+  // ✅ 寫回 Firestore（注意去掉 showNote）
+  try {
+    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
+    await updateDoc(dayRef, { events: eventsToSave });
+  } catch (e) {
+    console.error("更新行程排序失敗：", e);
+    alert("更新排序失敗（可能是 rules 不允許 update）");
+  } finally {
+    onEventDragEnd();
+  }
+}
+
+function onEventDragEnd() {
+  eventDrag.value.dragging = false;
+  eventDrag.value.draggingIdx = null;
+  disarmEventDrag();
+}
+
+
 async function loadPlan() {
   planLoading.value = true;
   try {
@@ -1081,7 +1266,40 @@ async function collapseAndSaveNote(dayId, idx) {
   }
 }
 
-async function clearAllNotes(dayId) {
+async function clearEventNote(dayId, idx) {
+  if (!canWrite.value) return alert("只讀模式無法清除。請先登入並被加入 members。");
+
+  const dayObj = plan.value.find((d) => d.id === dayId);
+  if (!dayObj) return;
+
+  const ev = dayObj.events?.[idx];
+  if (!ev) return;
+
+  // 沒筆記就不用做事（避免一直跳 confirm）
+  if (!noteExists(ev)) return;
+
+  if (!confirm("確定要清除「這一個行程」的筆記？此動作無法復原。")) return;
+
+  // 先更新畫面（體感更快）
+  dayObj.events[idx] = { ...ev, note: "", showNote: false };
+
+  try {
+    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+
+    // 寫回時要去掉 showNote（你原本就是這樣做）
+    const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
+
+    await updateDoc(dayRef, { events: eventsToSave });
+  } catch (e) {
+    console.error("清除單一筆記失敗：", e);
+    alert("清除失敗（可能是 rules 不允許 update / 網路問題）");
+  }
+}
+
+
+
+
+/*async function clearAllNotes(dayId) {
   if (!canWrite.value) return alert("只讀模式無法清除。請先登入並被加入 members。");
   if (!confirm("確定要清除「這一天」所有筆記？此動作無法復原。")) return;
 
@@ -1098,7 +1316,7 @@ async function clearAllNotes(dayId) {
     console.error("清除筆記失敗：", e);
     alert("清除失敗（可能是 rules 不允許 update）");
   }
-}
+}*/
 
 /* ===================== 行程編輯（長按） ===================== */
 const eventEditor = ref({
@@ -1106,24 +1324,72 @@ const eventEditor = ref({
   dayId: "",
   index: null, // null = 新增
   isEdit: false,
-  form: { time: "", loc: "", stay: "" },
+  form: { time: "", loc: "", stayH: 1, stayM: 0 },
+
 });
 
 let pressTimer = null;
+let pressStart = { x: 0, y: 0, moved: false, startedAt: 0 };
 
-function onEventPressStart(dayId, idx) {
-  if (!canWrite.value) return; // 只讀不啟動長按
+function onEventPressStart(dayId, idx, ev) {
+  if (!canWrite.value) return;
+
+  // ✅ 若正在握把拖曳解鎖中，不要觸發長按編輯
+  if (eventDrag.value.armed || eventDrag.value.dragging) return;
 
   clearTimeout(pressTimer);
+  pressStart.moved = false;
+  pressStart.startedAt = Date.now();
+
+  const p = getPoint(ev);
+  pressStart.x = p.x;
+  pressStart.y = p.y;
+
   pressTimer = setTimeout(() => {
-    openEventEditor(dayId, idx);
+    // ✅ 必須「幾乎沒動」才開啟編輯
+    if (!pressStart.moved) openEventEditor(dayId, idx);
   }, 500);
+}
+
+function onEventPressMove(ev) {
+  if (!pressTimer) return;
+  const p = getPoint(ev);
+
+  const dx = Math.abs(p.x - pressStart.x);
+  const dy = Math.abs(p.y - pressStart.y);
+
+  // ✅ 移動超過 10px 就視為滑動，取消長按
+  if (dx > 10 || dy > 10) {
+    pressStart.moved = true;
+    clearTimeout(pressTimer);
+    pressTimer = null;
+  }
+}
+
+// 桌機：mousemove 也取消
+function onEventPressMouseMove(ev) {
+  if (!pressTimer) return;
+  const p = getPoint(ev);
+  const dx = Math.abs(p.x - pressStart.x);
+  const dy = Math.abs(p.y - pressStart.y);
+  if (dx > 6 || dy > 6) {
+    pressStart.moved = true;
+    clearTimeout(pressTimer);
+    pressTimer = null;
+  }
 }
 
 function onEventPressEnd() {
   clearTimeout(pressTimer);
   pressTimer = null;
 }
+
+function getPoint(ev) {
+  const t = ev?.touches?.[0] || ev?.changedTouches?.[0];
+  if (t) return { x: t.clientX, y: t.clientY };
+  return { x: ev?.clientX ?? 0, y: ev?.clientY ?? 0 };
+}
+
 
 function openEventEditor(dayId, idx) {
   const dayObj = plan.value.find((d) => d.id === dayId);
@@ -1132,6 +1398,8 @@ function openEventEditor(dayId, idx) {
   const isEdit = idx !== null && idx !== undefined;
   const ev = isEdit ? dayObj.events[idx] : { time: "", loc: "", stay: "", note: "" };
 
+  const parsedStay = parseStayToHM(ev.stay);
+
   eventEditor.value.open = true;
   eventEditor.value.dayId = dayId;
   eventEditor.value.index = isEdit ? idx : null;
@@ -1139,18 +1407,19 @@ function openEventEditor(dayId, idx) {
   eventEditor.value.form = {
     time: String(ev.time || ""),
     loc: String(ev.loc || ""),
-    stay: String(ev.stay || ""),
+    stayH: parsedStay.h,
+    stayM: parsedStay.m,
   };
 }
+
 
 function closeEventEditor() {
   eventEditor.value.open = false;
   eventEditor.value.dayId = "";
   eventEditor.value.index = null;
   eventEditor.value.isEdit = false;
-  eventEditor.value.form = { time: "", loc: "", stay: "" };
+  eventEditor.value.form = { time: "", loc: "", stayH: 1, stayM: 0 };
 }
-
 async function saveEventEdit() {
   if (!canWrite.value) return alert("只讀模式無法儲存。請先登入並被加入 members。");
 
@@ -1161,13 +1430,15 @@ async function saveEventEdit() {
 
   const time = String(eventEditor.value.form.time || "").trim();
   const loc = String(eventEditor.value.form.loc || "").trim();
-  const stay = String(eventEditor.value.form.stay || "").trim();
+  const stayH = Number(eventEditor.value.form.stayH);
+  const stayM = Number(eventEditor.value.form.stayM);
 
-  if (!loc) return alert("地點必填。");
-  if (!time) return alert("時間必填。");
-  if (!stay) return alert("停留時間必填。");
+  if (!Number.isFinite(stayH) || stayH < 0) return alert("停留小時不正確。");
+  if (!Number.isFinite(stayM) || stayM < 0) return alert("停留分鐘不正確。");
 
+  const stay = `${String(stayH).padStart(2, "0")}時${String(stayM).padStart(2, "0")}分`;
   const newEv = { time, loc, stay, note: "" };
+
 
   if (idx === null || idx === undefined) {
     dayObj.events.push({ ...newEv, showNote: false });
@@ -1214,9 +1485,15 @@ async function deleteEvent() {
 const honeymoonCountdownText = computed(() => {
   const start = getHoneymoonStartISO();
   if (!start) return "";
+
   const days = daysUntil(start);
-  return `距離蜜月  ${days}天`;
+
+  // ✅ 天數 <= 0（含當天 / 已出發）就隱藏
+  if (days <= 0) return "";
+
+  return `距離蜜月旅行  ${days}天`;
 });
+
 
 function getHoneymoonStartISO() {
   if (!plan.value.length) return "";
@@ -1231,7 +1508,7 @@ function daysUntil(isoDate) {
   const target = new Date(`${isoDate}T00:00:00`);
   const diffMs = target.getTime() - today0.getTime();
   const diffDays = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
-  return Math.max(0, diffDays);
+  return diffDays; // ✅ 讓 computed 可以判斷 <= 0 直接隱藏
 }
 
 /* ===================== Weather (open-meteo) ===================== */
@@ -1296,14 +1573,13 @@ const weatherState = ref({
   statusEmoji: "⛅",
 });
 
-watch(activeDayId, async () => {
+/*atch(activeDayId, async () => {
   if (currentPage.value === "itinerary") {
     await refreshWeatherForActiveDay();
   }
 });
-
+*/
 watch(currentPage, async (p) => {
-  if (p === "itinerary") await refreshWeatherForActiveDay();
   if (p === "accounting") await reloadExpenses();
   if (p === "prep") await loadPrepAll();
   if (p === "tools") await refreshFxTool();
@@ -1362,6 +1638,15 @@ async function refreshWeatherForActiveDay() {
     weatherState.value.loading = false;
   }
 }
+
+async function manualRefreshWeatherAndFx() {
+  // ✅ 只更新「當前頁」最需要的資料，避免連動太多 UI
+  await refreshWeatherForActiveDay();
+
+  // 工具頁匯率：只更新工具頁顯示用的 rate（不會影響明細的日別匯率）
+  await refreshFxTool();
+}
+
 
 function simpleWeatherLabel(precipProb, tMax) {
   const p = Number(precipProb);
@@ -1471,11 +1756,12 @@ watch([accountingTab, detailDateFilter], async () => {
 
 const expenseForm = ref({
   date: new Date().toISOString().slice(0, 10),
-  amount: 0,
+  amount: "", // ✅ 改成空白
   currency: "JPY",
   category: "food",
   note: "",
 });
+
 
 const approxTwd = computed(() => {
   const amt = Number(expenseForm.value.amount) || 0;
@@ -1556,7 +1842,7 @@ async function addExpenseFromFancy() {
     alert("已先存本機，但雲端寫入失敗（請檢查 rules / 網路）");
   }
 
-  expenseForm.value.amount = 0;
+  expenseForm.value.amount = "";
   uiPlace.value = "";
   uiItem.value = "";
   uiPayMethod.value = "現金";
@@ -1762,10 +2048,152 @@ const prepTab = ref("todo");
 const prepInput = ref({ todo: "", luggage: "", shopping: "" });
 
 const prep = ref({
-  todo: { items: [], loading: false, error: "" },
-  luggage: { items: [], loading: false, error: "" },
-  shopping: { items: [], loading: false, error: "" },
+  todo: { items: [] },
+  luggage: { items: [] },
+  shopping: { items: [] },
 });
+
+
+const prepTabLabelMap = {
+  todo: "待辦",
+  luggage: "行李",
+  shopping: "購物",
+};
+
+const prepTabLabel = computed(() => prepTabLabelMap[prepTab.value]);
+
+/* ===================== Prep drag (only via handle) ===================== */
+const prepDrag = ref({
+  armedId: null,     // 目前「被握把解鎖」可拖的 item id
+  draggingId: null,  // 正在拖曳的 item id
+  fromId: null,      // drag 起點 id
+  kind: null,        // todo/luggage/shopping
+});
+
+let prepArmTimer = null;
+
+function armPrepDrag(itemId) {
+  if (!canWrite.value) return;
+  clearTimeout(prepArmTimer);
+
+  // ✅ 長按 180ms 才解鎖（避免輕觸誤拖）
+  prepArmTimer = setTimeout(() => {
+    prepDrag.value.armedId = itemId;
+  }, 180);
+}
+
+function disarmPrepDrag() {
+  clearTimeout(prepArmTimer);
+  prepArmTimer = null;
+  prepDrag.value.armedId = null;
+}
+
+function onPrepDragStart(kind, it, ev) {
+  if (!canWrite.value) return ev?.preventDefault?.();
+  if (prepDrag.value.armedId !== it.id) return ev?.preventDefault?.(); // ✅ 沒握把解鎖不准拖
+
+  prepDrag.value.draggingId = it.id;
+  prepDrag.value.fromId = it.id;
+  prepDrag.value.kind = kind;
+
+  try {
+    ev.dataTransfer.effectAllowed = "move";
+    ev.dataTransfer.setData("text/plain", it.id);
+  } catch {
+    // iOS 部分情境沒有 dataTransfer，不致命
+  }
+}
+
+function onPrepDragOver(kind, it, ev) {
+  if (!canWrite.value) return;
+  if (prepDrag.value.kind !== kind) return;
+  ev.preventDefault(); // ✅ 允許 drop
+  try {
+    ev.dataTransfer.dropEffect = "move";
+  } catch {}
+}
+
+async function onPrepDrop(kind, it, ev) {
+  if (!canWrite.value) return;
+  if (prepDrag.value.kind !== kind) return;
+
+  ev.preventDefault();
+
+  const fromId = prepDrag.value.fromId;
+  const toId = it.id;
+  if (!fromId || fromId === toId) return;
+
+  // 以「未完成在上、完成在下」後的 sorted 視覺序為準做換位
+  const arr = sortedPrepItems(kind);
+  const fromIdx = arr.findIndex((x) => x.id === fromId);
+  const toIdx = arr.findIndex((x) => x.id === toId);
+  if (fromIdx < 0 || toIdx < 0) return;
+
+  const moved = arr[fromIdx];
+  const target = arr[toIdx];
+
+  // ✅ 僅允許在同一區（done 狀態相同）內排序，避免「拖一下就把完成/未完成規則打亂」
+  if (!!moved.done !== !!target.done) return;
+
+  // 重新排列陣列
+  const newArr = [...arr];
+  newArr.splice(fromIdx, 1);
+  newArr.splice(toIdx, 0, moved);
+
+  // 重新寫 order：同區塊用等距數字，穩定、不會一直抖
+  const base = Date.now();
+  const step = 10;
+  const sameDone = newArr.filter((x) => !!x.done === !!moved.done);
+
+  // 把同 done 的 items 依出現順序重排 order
+  for (let i = 0; i < sameDone.length; i++) {
+    const x = sameDone[i];
+    const newOrder = base + i * step;
+
+    // 更新本機
+    const local = prep.value[kind].items.find((p) => p.id === x.id);
+    if (local) local.order = newOrder;
+
+    // 更新雲端
+    const key = prepCollectionKey(kind);
+    await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, x.id), { order: newOrder });
+  }
+}
+
+function onPrepDragEnd() {
+  prepDrag.value.draggingId = null;
+  prepDrag.value.fromId = null;
+  prepDrag.value.kind = null;
+  disarmPrepDrag();
+}
+
+
+function getPrepOrder(it) {
+  return typeof it.order === "number" ? it.order : 0;
+}
+
+/*function sortedPrepItems(kind) {
+  return [...prep.value[kind].items].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return getPrepOrder(a) - getPrepOrder(b);
+  });
+}*/
+
+
+
+/*async function togglePrepDone(kind, item) {
+  const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, `prep_${kind}`, item.id);
+  const newOrder = Date.now();
+
+  await updateDoc(refDoc, { done: item.done, order: newOrder });
+  item.order = newOrder;
+}
+
+async function deletePrepItem(kind, item) {
+  await deleteDoc(doc(db, "trips", DEFAULT_TRIP_ID, `prep_${kind}`, item.id));
+}*/
+
+
 
 let unsubPrepTodo = null;
 let unsubPrepLuggage = null;
@@ -1817,11 +2245,13 @@ function subscribePrepList(kind) {
           id: d.id,
           text: data.text || "",
           done: !!data.done,
+          order: typeof data.order === "number" ? data.order : null, // ✅ 新增：排序用
           uid: data.uid || "",
           displayName: data.displayName || "",
           createdAt: data.createdAt || null,
         };
       });
+
       prep.value[kind].loading = false;
     },
     (err) => {
@@ -1845,10 +2275,12 @@ async function addPrepItem(kind) {
     await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, key), {
       text,
       done: false,
+      order: Date.now(), // ✅ 新增：預設用時間當排序（越新越後）
       uid: user.value.uid,
       displayName: user.value.displayName || "使用者",
       createdAt: serverTimestamp(),
     });
+
     prepInput.value[kind] = "";
   } catch (e) {
     console.error("新增清單失敗：", e);
@@ -1856,17 +2288,58 @@ async function addPrepItem(kind) {
   }
 }
 
+
+function getPrepOrderValue(it) {
+  // order 優先；沒有就用 createdAt；再沒有就當 0
+  if (Number.isFinite(Number(it.order))) return Number(it.order);
+  const ms = it?.createdAt?.toMillis ? it.createdAt.toMillis() : 0;
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function sortedPrepItems(kind) {
+  const arr = [...(prep.value?.[kind]?.items || [])];
+
+  // ✅ 規則：未完成在上、已完成在下；同區塊用 order 小到大
+  arr.sort((a, b) => {
+    if (!!a.done !== !!b.done) return a.done ? 1 : -1;
+
+    const ao = getPrepOrderValue(a);
+    const bo = getPrepOrderValue(b);
+    if (ao !== bo) return ao - bo;
+
+    return String(a.text || "").localeCompare(String(b.text || ""), "zh-Hant");
+  });
+
+  return arr;
+}
+
+
+
+
+
 async function togglePrepDone(kind, item) {
   if (!canWrite.value) return;
+
   try {
     const key = prepCollectionKey(kind);
     const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, key, item.id);
-    await updateDoc(refDoc, { done: !!item.done });
+
+    // ✅ 勾選後移到底：我們把 order 設成現在時間（越大越後）
+    // 取消勾選也給新 order，避免回到很前面造成「跳來跳去」
+    const newOrder = Date.now();
+
+    await updateDoc(refDoc, { done: !!item.done, order: newOrder });
+
+    // ✅ 讓 UI 即刻反應（不用等 snapshot）
+    item.order = newOrder;
   } catch (e) {
     console.error("更新清單失敗：", e);
     alert("更新失敗（可能是 rules 不允許 update）");
   }
 }
+
+
+
 
 async function deletePrepItem(kind, item) {
   if (!canWrite.value) return;
@@ -2000,6 +2473,19 @@ function toHHMM(dateTimeStr) {
   const t = s.split("T")[1] || "";
   return t.slice(0, 5) || "--:--";
 }
+
+function parseStayToHM(stayStr) {
+  const s = String(stayStr || "");
+  const m = s.match(/(\d+)\s*時\s*(\d+)\s*分/);
+  if (m) return { h: Math.max(0, Number(m[1]) || 0), m: Math.max(0, Number(m[2]) || 0) };
+
+  // 兼容像 "01:30" 之類格式（若未來有人手動輸入）
+  const m2 = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (m2) return { h: Number(m2[1]) || 0, m: Number(m2[2]) || 0 };
+
+  return { h: 1, m: 0 };
+}
+
 
 function isFiniteNumber(v) {
   return Number.isFinite(Number(v));
