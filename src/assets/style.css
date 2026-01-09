@@ -306,7 +306,8 @@ body{
 .todo{ display:flex; gap:10px; align-items:center; flex:1; min-width:0; font-weight:900; }
 .todo span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .todo span.done{ text-decoration:line-through; opacity:.55; }
-
+.todo span { cursor: default; user-select: none; }
+.todo input[type="checkbox"] { cursor: pointer; }
 /* =============== Modal =============== */
 .modal-overlay{
   position:fixed;

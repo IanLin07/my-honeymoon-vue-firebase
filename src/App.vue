@@ -194,6 +194,9 @@
                   <button
                     class="btn btn-secondary btn-mini"
                     type="button"
+                    @pointerdown.stop.prevent
+                    @mousedown.stop.prevent
+                    @touchstart.stop.prevent
                     @click.stop="openNavigation(event.loc)"
                   >
                     導航
@@ -202,11 +205,15 @@
                   <button
                     class="btn btn-secondary btn-mini"
                     type="button"
+                    @pointerdown.stop.prevent
+                    @mousedown.stop.prevent
+                    @touchstart.stop.prevent
                     @click.stop="toggleNote(day.id, idx)"
                   >
                     筆記
                   </button>
                 </div>
+
               </div>
 
 
@@ -774,10 +781,11 @@
           </svg>
         </button>
 
-        <label class="todo">
+        <div class="todo">
           <input type="checkbox" v-model="it.done" @change="togglePrepDone(prepTab, it)" />
           <span :class="{ done: it.done }">{{ it.text }}</span>
-        </label>
+        </div>
+
 
         <button class="btn btn-ghost btn-mini" @click="deletePrepItem(prepTab, it)">刪除</button>
       </div>
@@ -791,16 +799,20 @@
 
       <!-- =============== 工具頁：即時匯率換算器（TWD / JPY） =============== -->
       <section v-else-if="currentPage === 'tools'" class="page">
-        <div class="card">
-          <div class="card-title">🧰 工具</div>
-          <div class="card-subtitle">
-            即時匯率換算器（台幣 ↔ 日幣）。<br />
-            預設匯率：1 TWD = 0.2 JPY（若抓不到線上匯率時自動備援）。
-          </div>
-        </div>
 
         <div class="card">
-          <div class="card-title">💱 匯率換算器</div>
+          <div class="card-header-row">
+            <div class="card-title">💱 匯率換算器</div>
+
+            <button
+              class="btn btn-secondary btn-mini"
+              type="button"
+              @click="updateExchangeRate"
+            >
+              更新匯率
+            </button>
+          </div>
+
 
           <div class="fx-row">
             <label class="fx-field">
@@ -823,17 +835,12 @@
             </div>
           </div>
 
-          <div class="row-right">
-            <button class="btn btn-secondary" @click="refreshFxTool">更新匯率</button>
-          </div>
+
         </div>
       </section>
       <!-- =============== 備用頁（美食 / 地點） =============== -->
       <section v-else-if="currentPage === 'backup'" class="page">
-        <div class="card">
-          <div class="card-title">🧷 備用</div>
-          <div class="card-subtitle">把「想去但不一定排得進去」的點先收這裡，臨機應變很省腦。</div>
-        </div>
+
 
         <div class="segmented">
           <button class="seg-btn" :class="{ active: backupTab === 'food' }" @click="backupTab='food'" type="button">
@@ -1021,19 +1028,30 @@ function stopHeartbeat() {
 
 function subscribePresence() {
   if (unsubPresence) unsubPresence();
+
   const q = query(collection(db, "presence"), orderBy("displayName", "asc"));
-  unsubPresence = onSnapshot(q, (snap) => {
-    presenceRaw.value = snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        displayName: data.displayName || "",
-        photoURL: data.photoURL || "",
-        lastSeenMs: data.lastSeen?.toMillis ? data.lastSeen.toMillis() : 0,
-      };
-    });
-  });
+
+  unsubPresence = onSnapshot(
+    q,
+    (snap) => {
+      presenceRaw.value = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          displayName: data.displayName || "",
+          photoURL: data.photoURL || "",
+          lastSeenMs: data.lastSeen?.toMillis ? data.lastSeen.toMillis() : 0,
+        };
+      });
+    },
+    (err) => {
+      // ✅ 權限不足時不要炸掉整個流程（也方便你在 Console 看清楚）
+      console.warn("[presence] onSnapshot failed:", err);
+      presenceRaw.value = [];
+    }
+  );
 }
+
 
 function unsubscribePresence() {
   if (unsubPresence) unsubPresence();
@@ -1439,9 +1457,16 @@ const eventEditor = ref({
 let pressStart = { x: 0, y: 0, moved: false, dayId: "", idx: null };
 
 function onEventPressStart(dayId, idx, ev) {
-  // ✅ 允許任何人點開 Modal（只讀者也能看）
   // ✅ 若正在握把拖曳解鎖中，不要觸發點擊開編輯
   if (eventDrag.value.armed || eventDrag.value.dragging) return;
+
+  // ✅ 關鍵修正：點到互動區（導航/筆記按鈕、輸入框、textarea、select…）就不要啟動「點一下開編輯」
+  const el = ev?.target;
+  const inInteractive =
+    el?.closest?.(
+      "button, a, input, textarea, select, option, label, .event-actions, .note-panel, .drag-handle"
+    );
+  if (inInteractive) return;
 
   const p = getPoint(ev);
   pressStart.x = p.x;
@@ -1450,6 +1475,7 @@ function onEventPressStart(dayId, idx, ev) {
   pressStart.dayId = dayId;
   pressStart.idx = idx;
 }
+
 
 
 function onEventPressMove(ev) {
@@ -1790,7 +1816,8 @@ const expenses = ref(loadLocal("hm_expenses_cache", []));
 const expensesLoading = ref(false);
 const expensesError = ref("");
 
-const accountingTab = ref("detail");
+const accountingTab = ref("entry"); // ✅ 預設進記帳頁就是「記帳」
+
 function goAccountingEntry() {
   if (!canWrite.value) {
     accountingTab.value = "detail";
@@ -2728,4 +2755,15 @@ function formatNumber(n) {
   font-size: 11px;
   opacity: 0.7;
 }
+
+/* 工具頁：匯率換算器標題與更新按鈕同列 */
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 </style>
+
+
