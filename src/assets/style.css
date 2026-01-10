@@ -1,3 +1,30 @@
+/* =========================
+   Mobile First – Global UX
+   ========================= */
+:root{
+  -webkit-tap-highlight-color: transparent; /* 手機點擊不出現藍色閃一下 */
+  text-size-adjust: 100%;                   /* iOS 字體縮放更穩 */
+}
+
+html, body{
+  height: 100%;
+  overscroll-behavior-y: contain;           /* 避免整頁過度橡皮筋造成誤觸感 */
+}
+
+button, input, select, textarea{
+  font: inherit;                            /* 避免 iOS/Android 表單字體不一致 */
+}
+
+/* ✅ 手機上：輸入欄/textarea 字體至少 16px，避免 iOS 自動放大 */
+@media (max-width: 768px){
+  .field-input,
+  .acc-input,
+  .note-textarea{
+    font-size: 16px;
+  }
+}
+
+
 * { box-sizing: border-box; }
 
 body{
@@ -10,16 +37,24 @@ body{
 .app-shell{ min-height:100vh; display:flex; flex-direction:column; }
 
 .app-header{ padding:14px 14px 8px 14px; }
-.app-title{ font-size:18px; font-weight:800; letter-spacing:.3px; }
+.app-title{ font-size:22px; font-weight:800; letter-spacing:.3px; }
 .app-subtitle{ margin-top:6px; font-size:12px; opacity:.7; }
 
-.app-main{ flex:1; padding:0 14px 92px 14px; }
+.app-main{
+  flex:1;
+  padding:0 14px calc(130px + env(safe-area-inset-bottom)) 14px; /* ✅ 避免最後幾筆被底部 nav 蓋住 */
+}
+
 .page{ display:block; }
 
 /* =============== Day Tabs =============== */
 .day-tabs{
   display:flex; gap:10px; overflow-x:auto; padding:8px 2px 10px 2px;
   scrollbar-width:none;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: #f7f4ee; /* 你 body 的底色，避免滑動時透明疊影 */
 }
 .day-tabs::-webkit-scrollbar{ display:none; }
 
@@ -220,6 +255,20 @@ body{
 
 
 /* =============== Buttons =============== */
+
+/* ✅ 手機可用性：可點擊區至少 44px（Apple HIG 常用基準） */
+.btn,
+.nav-item,
+.day-chip,
+.seg-btn,
+.acc-pill,
+.member-pill,
+.filter-pill,
+.icon-btn{
+  min-height: 44px;
+}
+
+
 .btn{
   border:0;
   border-radius:14px;
@@ -259,13 +308,22 @@ body{
 .bottom-nav{
   position:fixed;
   left:0; right:0; bottom:0;
-  height:78px;
+
+  /* ✅ 高度 + 安全區一起算（iPhone 底部手勢條） */
+  height: calc(78px + env(safe-area-inset-bottom));
+
   background:rgba(255,255,255,.92);
   backdrop-filter: blur(10px);
   border-top:1px solid rgba(0,0,0,.06);
+
   display:grid;
-  padding:10px 10px 14px 10px;
+
+  /* ✅ padding-bottom 也吃安全區，避免按鈕貼到底部 */
+  padding:10px 10px calc(14px + env(safe-area-inset-bottom)) 10px;
+
+  z-index: 40;
 }
+
 /*.bottom-nav-4{ grid-template-columns:repeat(4,1fr); }*/
 .bottom-nav-5{ grid-template-columns:repeat(5,1fr); }
 
@@ -279,7 +337,39 @@ body{
   gap:4px;
   padding:8px;
   transition:transform .12s ease, background .12s ease;
+  position:relative;
+  overflow:hidden;
 }
+
+/* 陰影脈衝（按下瞬間） */
+.nav-item::after{
+  content:"";
+  position:absolute;
+  inset:6px;
+  border-radius:14px;
+  opacity:0;
+  box-shadow:0 10px 22px rgba(0,0,0,.18);
+  transition:opacity .18s ease;
+  pointer-events:none;
+}
+.nav-item:active::after{ opacity:1; }
+
+/* 點擊後短促微彈（pulse class） */
+.nav-item.pulse{
+  animation: navPulse 240ms ease-out;
+}
+
+@keyframes navPulse{
+  0%   { transform:scale(1); }
+  35%  { transform:scale(.94); }
+  100% { transform:scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .nav-item.pulse{ animation:none; }
+}
+
+
 .nav-item:active{ transform:scale(.98); }
 .nav-item.active{ background:rgba(79,182,255,.16); }
 .nav-icon{ font-size:18px; }

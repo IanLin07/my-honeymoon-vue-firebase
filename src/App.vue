@@ -1,7 +1,7 @@
 <template>
   <div class="app-shell">
     <header class="app-header">
-      <div class="app-title">❤️ 廷翰與燁姍的蜜月旅行</div>
+      <div class="app-title"> 廷翰與燁姍的蜜月旅行❤️</div>
       <div class="app-subtitle">{{ pageTitle }}</div>
 
       <!-- 登入列（僅 Google 登入；未登入＝只讀瀏覽模式） -->
@@ -42,7 +42,8 @@
 
     </header>
 
-    <main class="app-main">
+    <main class="app-main" ref="appMainEl">
+
       <!-- =============== 行程頁（任何人可看；登入且是成員才可改） =============== -->
       <section v-if="currentPage === 'itinerary'" class="page">
         <div class="day-tabs">
@@ -51,7 +52,8 @@
             :key="day.id"
             class="day-chip"
             :class="{ active: activeDayId === day.id }"
-            @click="activeDayId = day.id"
+            @click="selectDay(day.id)"
+
           >
             <div class="chip-top">DAY {{ day.day }}</div>
             <div class="chip-date">{{ day.shortDate || toShortDate(day.date) }}</div>
@@ -64,8 +66,8 @@
           :key="day.id"
           v-show="activeDayId === day.id"
           class="day-panel"
-          @touchstart="onDaySwipeStart($event)"
-          @touchmove="onDaySwipeMove($event)"
+          @touchstart.passive="onDaySwipeStart($event)"
+          @touchmove.passive="onDaySwipeMove($event)"
           @touchend="onDaySwipeEnd"
           @touchcancel="onDaySwipeEnd"
         >
@@ -197,6 +199,8 @@
                     @pointerdown.stop.prevent
                     @mousedown.stop.prevent
                     @touchstart.stop.prevent
+                    @mouseup.stop.prevent
+                    @touchend.stop.prevent
                     @click.stop="openNavigation(event.loc)"
                   >
                     導航
@@ -208,10 +212,13 @@
                     @pointerdown.stop.prevent
                     @mousedown.stop.prevent
                     @touchstart.stop.prevent
+                    @mouseup.stop.prevent
+                    @touchend.stop.prevent
                     @click.stop="toggleNote(day.id, idx)"
                   >
                     筆記
                   </button>
+
                 </div>
 
               </div>
@@ -817,14 +824,14 @@
           <div class="fx-row">
             <label class="fx-field">
               <div class="field-label">台幣 TWD</div>
-              <input class="field-input" type="number" v-model.number="fxTool.twd" @input="onFxToolTwdInput" placeholder="0" />
+              <input class="field-input" type="number" v-model.number="fxTool.twd" @input="onFxToolTwdInput"  />
             </label>
 
             <div class="fx-eq">⇄</div>
 
             <label class="fx-field">
               <div class="field-label">日幣 JPY</div>
-              <input class="field-input" type="number" v-model.number="fxTool.jpy" @input="onFxToolJpyInput" placeholder="0" />
+              <input class="field-input" type="number" v-model.number="fxTool.jpy" @input="onFxToolJpyInput"  />
             </label>
           </div>
 
@@ -867,32 +874,77 @@
     </main>
 
     <nav class="bottom-nav bottom-nav-5">
-      <button class="nav-item" :class="{ active: currentPage === 'itinerary' }" @click="currentPage = 'itinerary'">
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'itinerary' }"
+
+        @pointerup.prevent="goPage('itinerary')"
+        @touchend.prevent="goPage('itinerary')"
+        @click.prevent="goPage('itinerary')"
+      >
         <div class="nav-icon">🗓️</div>
         <div class="nav-label">行程</div>
       </button>
 
-      <button class="nav-item" :class="{ active: currentPage === 'accounting' }" @click="currentPage = 'accounting'">
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'accounting' }"
+
+        @pointerup.prevent="goPage('accounting')"
+        @touchend.prevent="goPage('accounting')"
+        @click.prevent="goPage('accounting')"
+      >
         <div class="nav-icon">🧾</div>
         <div class="nav-label">記帳</div>
       </button>
 
-      <button class="nav-item" :class="{ active: currentPage === 'prep' }" @click="currentPage = 'prep'">
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'prep' }"
+
+        @pointerup.prevent="goPage('prep')"
+        @touchend.prevent="goPage('prep')"
+        @click.prevent="goPage('prep')"
+      >
         <div class="nav-icon">🎒</div>
         <div class="nav-label">準備</div>
       </button>
 
-      <button class="nav-item" :class="{ active: currentPage === 'tools' }" @click="currentPage = 'tools'">
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'tools' }"
+
+        @pointerup.prevent="goPage('tools')"
+        @touchend.prevent="goPage('tools')"
+        @click.prevent="goPage('tools')"
+      >
         <div class="nav-icon">🧰</div>
         <div class="nav-label">工具</div>
       </button>
-      <button class="nav-item" :class="{ active: currentPage === 'backup' }" @click="currentPage = 'backup'">
+
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'backup' }"
+
+        @pointerup.prevent="goPage('backup')"
+        @touchend.prevent="goPage('backup')"
+        @click.prevent="goPage('backup')"
+      >
         <div class="nav-icon">🧷</div>
         <div class="nav-label">備用</div>
       </button>
-
     </nav>
+
+
   </div>
+
+
+
 </template>
 
 <script setup>
@@ -1062,6 +1114,59 @@ function unsubscribePresence() {
 /* ===================== Pages ===================== */
 const currentPage = ref("itinerary");
 const backupTab = ref("food"); // food | places
+// ✅ Bottom nav 點擊回饋（對應 template 的 :class="{ ..., pulse: navPulse === 'xxx' }"）
+const navPulse = ref("");
+
+// ✅ 底部切換頁面：桌機 click / 手機 tap 通用
+function goPage(page) {
+  // 避免重複點擊同頁還一直觸發
+  if (currentPage.value === page) {
+    // 仍做一次 pulse，讓使用者知道有點到
+    navPulse.value = page;
+    window.setTimeout(() => {
+      if (navPulse.value === page) navPulse.value = "";
+    }, 260);
+    return;
+  }
+
+  currentPage.value = page;
+
+  // 點擊動畫（你 CSS 已有 .nav-item.pulse 的 keyframes）
+  navPulse.value = page;
+  window.setTimeout(() => {
+    if (navPulse.value === page) navPulse.value = "";
+  }, 260);
+
+  // ✅ 依頁面做必要的狀態矯正（避免只讀時停在記帳 entry）
+  if (page === "accounting") {
+    if (!canWrite.value) {
+      accountingTab.value = "detail";
+    } else {
+      // 你需求是「進記帳頁預設在記帳」，這裡保險再補一次
+      accountingTab.value = "entry";
+    }
+  }
+}
+
+/* ===================== Bottom Nav：保險切頁（mobile click 容錯） ===================== */
+
+
+
+// ===================== Mobile UX：底部導覽列「類 haptic」回饋 =====================
+/*const navPulse = ref("");*/
+let navPulseTimer = null;
+
+/*function goPage(page) {
+  currentPage.value = page;
+
+  // 觸發一次短促的 pulse（視覺微彈＝類 haptic 體感）
+  navPulse.value = page;
+  if (navPulseTimer) clearTimeout(navPulseTimer);
+  navPulseTimer = setTimeout(() => {
+    if (navPulse.value === page) navPulse.value = "";
+  }, 240);
+}*/
+
 
 const pageTitle = computed(() => {
   if (currentPage.value === "itinerary") return "行程";
@@ -1132,7 +1237,10 @@ onBeforeUnmount(() => {
   stopHeartbeat();
   unsubscribePresence();
   unsubscribePrepAll();
+
+  if (navPulseTimer) clearTimeout(navPulseTimer);
 });
+
 
 /* ===================== Auth actions ===================== */
 async function loginGoogle() {
@@ -1168,6 +1276,42 @@ async function checkMembership() {
 const plan = ref([]);
 const activeDayId = ref(null);
 const planLoading = ref(false);
+// ===================== Mobile UX：切換天數回到頂端 =====================
+const appMainEl = ref(null);
+
+function scrollToTopSmart() {
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const behavior = reduced ? "auto" : "smooth";
+
+  // 若未來你把 app-main 改成可獨立捲動，這裡會優先捲它
+  const el = appMainEl.value;
+  if (el && typeof el.scrollTo === "function") {
+    el.scrollTo({ top: 0, behavior });
+  }
+
+  // 目前你的頁面主要是 window 捲動：確保一定回到頂端
+  window.scrollTo({ top: 0, behavior });
+  document.documentElement?.scrollTo?.({ top: 0, behavior });
+}
+
+function selectDay(dayId) {
+  activeDayId.value = dayId;
+}
+
+// ✅ 避免初次 loadPlan 設定 activeDayId 時也觸發（只針對「切換」）
+let didInitDayScroll = false;
+
+watch(activeDayId, () => {
+  if (currentPage.value !== "itinerary") return;
+
+  if (!didInitDayScroll) {
+    didInitDayScroll = true;
+    return;
+  }
+
+  // 等畫面完成切換後再回頂端（避免切換瞬間抖動）
+  requestAnimationFrame(() => scrollToTopSmart());
+});
 
 /* ===================== Day swipe：左右滑切換天數 ===================== */
 // ✅ 只要「水平位移夠大」且「垂直位移不大」，就視為左右滑；避免下滑誤觸切天數
@@ -1558,6 +1702,7 @@ function closeEventEditor() {
   eventEditor.value.isEdit = false;
   eventEditor.value.form = { time: "", loc: "", stayH: 1, stayM: 0 };
 }
+
 async function saveEventEdit() {
   if (!canWrite.value) return alert("只讀模式無法儲存。請先登入並被加入 members。");
 
@@ -1575,25 +1720,36 @@ async function saveEventEdit() {
   if (!Number.isFinite(stayM) || stayM < 0) return alert("停留分鐘不正確。");
 
   const stay = `${String(stayH).padStart(2, "0")}時${String(stayM).padStart(2, "0")}分`;
-  const newEv = { time, loc, stay, note: "" };
+  const newEvBase = { time, loc, stay };
 
-
-  if (idx === null || idx === undefined) {
-    dayObj.events.push({ ...newEv, showNote: false });
-  } else {
-    const oldNote = String(dayObj.events[idx]?.note || "");
-    dayObj.events[idx] = { ...newEv, note: oldNote, showNote: false };
-  }
+  // ✅ 先備份（如果 Firestore 寫入失敗，要能回滾）
+  const before = dayObj.events.map((e) => ({ ...e }));
 
   try {
+    // ✅ 先更新 UI（讓手感快），但失敗會回滾
+    if (idx === null || idx === undefined) {
+      dayObj.events.push({ ...newEvBase, note: "", showNote: false });
+    } else {
+      const oldNote = String(dayObj.events[idx]?.note || "");
+      dayObj.events[idx] = { ...newEvBase, note: oldNote, showNote: false };
+    }
+
     const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
+
     await updateDoc(dayRef, { events: eventsToSave });
+
     closeEventEditor();
-  } catch (e) {
-    console.error("儲存行程失敗：", e);
-    alert("儲存失敗（可能是 rules 不允許 update）");
-  }
+    alert("儲存成功！");
+    } catch (e) {
+      // 回滾 UI
+      dayObj.events = before;
+
+      console.error("儲存行程失敗：", e);
+      const msg = e?.code ? `${e.code}` : (e?.message || "未知錯誤");
+      alert(`儲存失敗：${msg}`);
+    }
+
 }
 
 async function deleteEvent() {
@@ -1606,18 +1762,31 @@ async function deleteEvent() {
   const dayObj = plan.value.find((d) => d.id === dayId);
   if (!dayObj) return;
 
-  dayObj.events.splice(idx, 1);
+  // ✅ 備份供回滾
+  const before = dayObj.events.map((e) => ({ ...e }));
 
   try {
+    // ✅ 先更新 UI（手感快），失敗就回滾
+    dayObj.events.splice(idx, 1);
+
     const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
+
     await updateDoc(dayRef, { events: eventsToSave });
+
     closeEventEditor();
+    alert("刪除成功！");
   } catch (e) {
+    // 回滾 UI
+    dayObj.events = before;
+
     console.error("刪除行程失敗：", e);
-    alert("刪除失敗（可能是 rules 不允許 update）");
+    const msg = e?.code ? `${e.code}` : (e?.message || "未知錯誤");
+    alert(`刪除失敗：${msg}`);
   }
+
 }
+
 
 /* ===================== Honeymoon countdown ===================== */
 const honeymoonCountdownText = computed(() => {
@@ -1711,12 +1880,7 @@ const weatherState = ref({
   statusEmoji: "⛅",
 });
 
-/*atch(activeDayId, async () => {
-  if (currentPage.value === "itinerary") {
-    await refreshWeatherForActiveDay();
-  }
-});
-*/
+
 watch(currentPage, async (p) => {
   if (p === "accounting") await reloadExpenses();
   if (p === "prep") await loadPrepAll();
@@ -2505,8 +2669,8 @@ async function deletePrepItem(kind, item) {
 
 /* ===================== Tools：即時匯率換算器 ===================== */
 const fxTool = ref({
-  twd: 0,
-  jpy: 0,
+  twd: "",
+  jpy: "",
   updatedAt: "",
   lock: "twd",
 });
@@ -2527,21 +2691,42 @@ function nowTimeLabel() {
 
 function onFxToolTwdInput() {
   fxTool.value.lock = "twd";
-  const twd = Number(fxTool.value.twd) || 0;
 
-  // ✅ twd -> jpy：jpy = twd / (TWD per JPY)
+  // ✅ 若使用者清空輸入，另一欄也清空（不要變 0）
+  if (fxTool.value.twd === "" || fxTool.value.twd === null || fxTool.value.twd === undefined) {
+    fxTool.value.jpy = "";
+    return;
+  }
+
+  const twd = Number(fxTool.value.twd);
+  if (!Number.isFinite(twd)) {
+    fxTool.value.jpy = "";
+    return;
+  }
+
   const rate = fxToolRate.value || DEFAULT_FX_JPY_TO_TWD;
   fxTool.value.jpy = round2(rate > 0 ? twd / rate : twd / DEFAULT_FX_JPY_TO_TWD);
 }
 
 function onFxToolJpyInput() {
   fxTool.value.lock = "jpy";
-  const jpy = Number(fxTool.value.jpy) || 0;
 
-  // ✅ jpy -> twd：twd = jpy * (TWD per JPY)
+  // ✅ 若使用者清空輸入，另一欄也清空（不要變 0）
+  if (fxTool.value.jpy === "" || fxTool.value.jpy === null || fxTool.value.jpy === undefined) {
+    fxTool.value.twd = "";
+    return;
+  }
+
+  const jpy = Number(fxTool.value.jpy);
+  if (!Number.isFinite(jpy)) {
+    fxTool.value.twd = "";
+    return;
+  }
+
   const rate = fxToolRate.value || DEFAULT_FX_JPY_TO_TWD;
   fxTool.value.twd = round2(jpy * rate);
 }
+
 
 
 function round2(n) {
@@ -2663,6 +2848,13 @@ function formatNumber(n) {
 </script>
 
 <style scoped>
+
+/* ✅ 手機：優先允許垂直捲動，避免左右滑判定干擾下滑 */
+.day-panel{
+  touch-action: pan-y;
+}
+
+
 .auth-bar {
   margin-top: 10px;
   display: flex;
