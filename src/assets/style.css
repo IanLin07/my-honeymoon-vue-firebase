@@ -309,7 +309,7 @@ body{
   position:fixed;
   left:0; right:0; bottom:0;
 
-  /* ✅ 高度 + 安全區一起算（iPhone 底部手勢條） */
+  /* ✅ iPhone 安全區：底部高度要吃到 safe-area */
   height: calc(78px + env(safe-area-inset-bottom));
 
   background:rgba(255,255,255,.92);
@@ -318,10 +318,28 @@ body{
 
   display:grid;
 
-  /* ✅ padding-bottom 也吃安全區，避免按鈕貼到底部 */
+  /* ✅ 底部 padding 也吃 safe-area，避免按鈕貼到底部手勢條 */
   padding:10px 10px calc(14px + env(safe-area-inset-bottom)) 10px;
 
+  /* ✅ 關鍵：確保永遠在最上層（但仍低於 modal 50） */
   z-index: 40;
+
+  /* ✅ 關鍵：確保可點擊（防止某些 overlay/容器怪問題） */
+  pointer-events: auto;
+
+  /* ✅ 手機點擊體感更穩（避免雙擊縮放/延遲） */
+  touch-action: manipulation;
+}
+
+.nav-item{
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+
+/* ✅ 讓手機點按更穩（避免 300ms 延遲/雙擊縮放干擾） */
+.event-actions .btn{
+  touch-action: manipulation;
 }
 
 /*.bottom-nav-4{ grid-template-columns:repeat(4,1fr); }*/
