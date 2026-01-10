@@ -153,15 +153,9 @@
               @dragover="onEventDragOver(day.id, idx, $event)"
               @drop="onEventDrop(day.id, idx, $event)"
               @dragend="onEventDragEnd"
-              @touchstart="onEventPressStart(day.id, idx, $event)"
-              @touchmove="onEventPressMove($event)"
-              @touchend="onEventPressEnd"
-              @touchcancel="onEventPressEnd"
-              @mousedown="onEventPressStart(day.id, idx, $event)"
-              @mousemove="onEventPressMouseMove($event)"
-              @mouseup="onEventPressEnd"
-              @mouseleave="onEventPressEnd"
+              @click="onEventCardClick(day.id, idx, $event)"
             >
+
 
               <div class="event-row">
                 <!-- ✅ 拖曳握把：按住才可拖，不觸發長按編輯 -->
@@ -196,11 +190,8 @@
                   <button
                     class="btn btn-secondary btn-mini"
                     type="button"
-                    @pointerdown.stop.prevent
-                    @mousedown.stop.prevent
-                    @touchstart.stop.prevent
-                    @mouseup.stop.prevent
-                    @touchend.stop.prevent
+                    @pointerup.stop
+                    @touchend.stop
                     @click.stop="openNavigation(event.loc)"
                   >
                     導航
@@ -209,11 +200,8 @@
                   <button
                     class="btn btn-secondary btn-mini"
                     type="button"
-                    @pointerdown.stop.prevent
-                    @mousedown.stop.prevent
-                    @touchstart.stop.prevent
-                    @mouseup.stop.prevent
-                    @touchend.stop.prevent
+                    @pointerup.stop
+                    @touchend.stop
                     @click.stop="toggleNote(day.id, idx)"
                   >
                     筆記
@@ -1673,6 +1661,27 @@ function getPoint(ev) {
 }
 
 
+
+// ✅ 手機/桌機都可靠：用 click 開編輯；點到互動元件則不開
+function onEventCardClick(dayId, idx, ev) {
+  if (!canWrite.value) return;
+
+  const el = ev?.target;
+  const inInteractive =
+    el?.closest?.(
+      "button, a, input, textarea, select, option, label, .event-actions, .note-panel, .drag-handle"
+    );
+
+  if (inInteractive) return;
+
+  openEventEditor(dayId, idx);
+}
+
+
+
+
+
+
 function openEventEditor(dayId, idx) {
   const dayObj = plan.value.find((d) => d.id === dayId);
   if (!dayObj) return;
@@ -2852,7 +2861,11 @@ function formatNumber(n) {
 /* ✅ 手機：優先允許垂直捲動，避免左右滑判定干擾下滑 */
 .day-panel{
   touch-action: pan-y;
+
+  /* ✅ 保證最後一個行程不會被 bottom nav 壓到，手機一定點得到 */
+  padding-bottom: calc(110px + env(safe-area-inset-bottom));
 }
+
 
 
 .auth-bar {
