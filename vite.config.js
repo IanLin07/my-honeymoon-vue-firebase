@@ -2,6 +2,9 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
+
+
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -52,11 +55,14 @@ export default defineConfig({
 
       // 想在本機也測 SW（可選，但我建議先開，測完再關）
       devOptions: {
-        enabled: true,
-        type: 'module',
+        enabled: false,
       },
     }),
   ],
 
   base: '/my-honeymoon-vue-firebase/',
+
+  build: {
+  copyPublicDir: true,
+  },
 })

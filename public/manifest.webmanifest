@@ -1,0 +1,30 @@
+{
+  "name": "廷翰與燁姍的蜜月旅行",
+  "short_name": "蜜月",
+  "description": "蜜月行程與記帳 App",
+  "display": "standalone",
+  "background_color": "#f7f4ee",
+  "theme_color": "#4fb6ff",
+  "start_url": "/my-honeymoon-vue-firebase/",
+  "scope": "/my-honeymoon-vue-firebase/",
+  "icons": [
+    {
+      "src": "/my-honeymoon-vue-firebase/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/my-honeymoon-vue-firebase/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/my-honeymoon-vue-firebase/pwa/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
