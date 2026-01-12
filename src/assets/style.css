@@ -187,7 +187,7 @@ body{
 .event-stay{ margin-top:4px; font-size:12px; opacity:.75; font-weight:700; }
 .event-actions{ display:flex; gap:8px; justify-content:flex-end; align-items:center; }
 
-.note-panel{ margin-top:10px; border-radius:16px; background:#f1fbf7; padding:10px; }
+.note-panel{ margin-top:10px; border-radius:16px; background:#eaf2ff; padding:10px; }
 .note-textarea{
   width:100%; min-height:150px; resize:vertical;
   border:2px solid rgba(36,90,79,.12);
@@ -198,11 +198,12 @@ body{
 
 .note-between{
   margin:-2px 0 12px 0;
-  background:rgba(255,255,255,.75);
-  border:2px dashed rgba(36,90,79,.18);
+  background:#eaf2ff;
+  border:2px dashed rgba(79,182,255,.45);
   border-radius:16px;
   padding:12px;
 }
+
 
 .note-between-head{
   display:flex;
@@ -344,6 +345,8 @@ body{
 
 /*.bottom-nav-4{ grid-template-columns:repeat(4,1fr); }*/
 .bottom-nav-5{ grid-template-columns:repeat(5,1fr); }
+.bottom-nav-6{ grid-template-columns:repeat(6,1fr); }
+
 
 .nav-item{
   border:0;
@@ -701,6 +704,7 @@ body{
 
 /* =============== Prep segmented 3 =============== */
 .segmented-3{ grid-template-columns:repeat(3, 1fr); }
+.segmented-4{ grid-template-columns:repeat(4, 1fr); }
 
 /* =============== Tools: FX converter =============== */
 .fx-row{
@@ -785,6 +789,184 @@ body{
   box-shadow: 0 4px 14px rgba(0,0,0,0.08);
 }
 
+/* ===================== Booking（預定頁） ===================== */
+.booking-list{
+  margin-top:12px;
+  display:grid;
+  gap:12px;
+}
+
+.booking-card{
+  background:rgba(255,255,255,.92);
+  border-radius:24px;
+  padding:14px;
+  box-shadow:0 12px 28px rgba(0,0,0,.08);
+  border:2px solid rgba(0,0,0,.04);
+  cursor:pointer;
+}
+
+.booking-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.booking-vendor{
+  font-weight:1000;
+  opacity:.75;
+  font-size:12px;
+}
+
+.booking-code{
+  margin-top:10px;
+  background:#f1f4fb;
+  border-radius:18px;
+  padding:12px;
+  text-align:center;
+  border:2px solid rgba(0,0,0,.03);
+}
+.booking-code-label{
+  font-size:11px;
+  font-weight:900;
+  opacity:.55;
+}
+.booking-code-value{
+  margin-top:6px;
+  font-size:38px;
+  font-weight:1000;
+  letter-spacing:2px;
+  color:#6a5b4c;
+}
+
+.flight-mid{
+  margin-top:12px;
+  background:#fff;
+  border-radius:18px;
+  padding:12px;
+  border:2px solid rgba(0,0,0,.04);
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:10px;
+  align-items:center;
+}
+
+.flight-col{
+  text-align:center;
+}
+.flight-airport{
+  font-size:22px;
+  font-weight:1000;
+  color:#6a5b4c;
+}
+.flight-time{
+  margin-top:4px;
+  font-size:14px;
+  font-weight:900;
+  opacity:.8;
+}
+.flight-chip{
+  margin-top:8px;
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:1000;
+  color:#fff;
+}
+.flight-chip.green{ background:#78b45a; }
+.flight-chip.orange{ background:#f2a24a; }
+
+.flight-center{
+  text-align:center;
+  opacity:.85;
+}
+.flight-duration{
+  font-size:12px;
+  font-weight:900;
+  opacity:.7;
+}
+.flight-plane{
+  margin-top:4px;
+  font-size:18px;
+}
+.flight-date{
+  margin-top:4px;
+  font-size:12px;
+  font-weight:900;
+  opacity:.7;
+}
+
+.booking-simple{
+  margin-top:12px;
+  background:#fff;
+  border-radius:18px;
+  padding:12px;
+  border:2px solid rgba(0,0,0,.04);
+}
+.booking-simple-title{
+  font-weight:1000;
+  font-size:14px;
+}
+.booking-simple-sub{
+  margin-top:6px;
+  font-weight:900;
+  font-size:12px;
+  opacity:.65;
+}
+
+.booking-meta{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.meta-item{
+  background:rgba(255,255,255,.95);
+  border:2px solid rgba(0,0,0,.04);
+  border-radius:16px;
+  padding:10px;
+  text-align:center;
+}
+.meta-label{
+  font-size:11px;
+  font-weight:900;
+  opacity:.55;
+}
+.meta-value{
+  margin-top:6px;
+  font-size:13px;
+  font-weight:1000;
+  opacity:.85;
+}
+
+.booking-bottom{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.booking-mini{
+  background:rgba(255,255,255,.95);
+  border:2px solid rgba(0,0,0,.04);
+  border-radius:16px;
+  padding:10px;
+}
+.mini-label{
+  font-size:11px;
+  font-weight:900;
+  opacity:.55;
+}
+.mini-value{
+  margin-top:6px;
+  font-size:13px;
+  font-weight:1000;
+  opacity:.85;
+}
+
+
+
+
 /* =============== Prep drag handle =============== */
 .drag-handle{
   width:32px;
@@ -809,3 +991,233 @@ body{
   outline:2px dashed rgba(36,90,79,.25);
 }
 
+/* ===================== Booking UI v2 (match screenshot 2) ===================== */
+.booking-card.booking-card2{
+  max-width: 420px;
+  margin: 14px auto;
+  border-radius: 26px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 2px solid rgba(0,0,0,.05);
+  box-shadow: 0 14px 30px rgba(0,0,0,.10);
+}
+
+/* 上方淡藍底 */
+.booking-card.booking-card2 .bk2-topbar{
+  background: #eaf2ff;
+  padding: 14px 16px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.booking-card.booking-card2 .bk2-airline{
+  font-weight: 900;
+  font-size: 13px;
+  color: rgba(0,0,0,.55);
+}
+
+.booking-card.booking-card2 .bk2-mini-btn{
+  border: 0;
+  background: rgba(255,255,255,.85);
+  border: 2px solid rgba(0,0,0,.05);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 大代碼區 */
+.booking-card.booking-card2 .bk2-code{
+  background: #eaf2ff;
+  padding: 6px 16px 14px;
+}
+
+.booking-card.booking-card2 .bk2-code-text{
+  background: rgba(255,255,255,.75);
+  border: 2px solid rgba(0,0,0,.05);
+  border-radius: 18px;
+  padding: 10px 12px;
+  text-align: center;
+  font-size: 44px;
+  font-weight: 1000;
+  letter-spacing: 3px;
+  color: #6a5b4c;
+}
+
+/* 航段白卡 */
+.booking-card.booking-card2 .bk2-route{
+  margin: 12px 16px 0;
+  background: #fff;
+  border-radius: 20px;
+  border: 2px solid rgba(0,0,0,.05);
+  padding: 14px 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.booking-card.booking-card2 .bk2-col{
+  text-align: center;
+}
+
+.booking-card.booking-card2 .bk2-iata{
+  font-weight: 1000;
+  font-size: 24px;
+  color: #6a5b4c;
+}
+
+.booking-card.booking-card2 .bk2-time{
+  margin-top: 4px;
+  font-weight: 900;
+  font-size: 14px;
+  opacity: .85;
+}
+
+.booking-card.booking-card2 .bk2-chip{
+  margin-top: 8px;
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 1000;
+  font-size: 11px;
+}
+
+.booking-card.booking-card2 .bk2-chip-green{ background: #78b45a; }
+.booking-card.booking-card2 .bk2-chip-orange{ background: #f2a24a; }
+
+.booking-card.booking-card2 .bk2-mid{
+  text-align: center;
+  opacity: .85;
+}
+
+.booking-card.booking-card2 .bk2-duration{
+  font-weight: 900;
+  font-size: 12px;
+  opacity: .7;
+}
+
+.booking-card.booking-card2 .bk2-plane{
+  margin-top: 4px;
+  font-size: 18px;
+}
+
+.booking-card.booking-card2 .bk2-date{
+  margin-top: 4px;
+  font-weight: 900;
+  font-size: 12px;
+  opacity: .7;
+}
+
+/* 非 flight */
+.booking-card.booking-card2 .bk2-route-simple{
+  grid-template-columns: 1fr;
+  text-align: left;
+}
+.booking-card.booking-card2 .bk2-simple-title{
+  font-weight: 1000;
+  font-size: 14px;
+}
+.booking-card.booking-card2 .bk2-simple-sub{
+  margin-top: 6px;
+  font-weight: 900;
+  font-size: 12px;
+  opacity: .65;
+}
+
+/* 行李/機型列 */
+.booking-card.booking-card2 .bk2-meta{
+  margin: 12px 16px 0;
+  background: rgba(255,255,255,.95);
+  border: 2px solid rgba(0,0,0,.05);
+  border-radius: 18px;
+  padding: 12px 10px;
+  display: grid;
+  grid-template-columns: 1fr 12px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.booking-card.booking-card2 .bk2-meta-item{
+  text-align: center;
+}
+
+.booking-card.booking-card2 .bk2-meta-label{
+  font-weight: 1000;
+  font-size: 11px;
+  opacity: .55;
+}
+
+.booking-card.booking-card2 .bk2-meta-value{
+  margin-top: 6px;
+  font-weight: 1000;
+  font-size: 13px;
+  opacity: .85;
+}
+
+.booking-card.booking-card2 .bk2-meta-divider{
+  width: 2px;
+  height: 32px;
+  background: rgba(0,0,0,.08);
+  margin: 0 auto;
+  border-radius: 999px;
+}
+
+/* 價格/購買日 */
+.booking-card.booking-card2 .bk2-bottom{
+  margin: 12px 16px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.booking-card.booking-card2 .bk2-box{
+  background: rgba(255,255,255,.95);
+  border: 2px solid rgba(0,0,0,.05);
+  border-radius: 18px;
+  padding: 12px;
+}
+
+.booking-card.booking-card2 .bk2-box-label{
+  font-weight: 1000;
+  font-size: 11px;
+  opacity: .55;
+}
+
+.booking-card.booking-card2 .bk2-box-value{
+  margin-top: 8px;
+  font-weight: 1000;
+  font-size: 14px;
+  opacity: .9;
+}
+
+.booking-card.booking-card2 .bk2-box-sub{
+  margin-top: 4px;
+  font-weight: 900;
+  font-size: 11px;
+  opacity: .55;
+}
+
+/* 底部大按鈕 */
+.booking-card.booking-card2 .bk2-edit-btn{
+  width: calc(100% - 32px);
+  margin: 0 16px 16px;
+  border: 2px solid rgba(0,0,0,.06);
+  background: rgba(255,255,255,.95);
+  border-radius: 18px;
+  padding: 12px 14px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+/* 手機：卡片更貼邊 */
+@media (max-width: 420px){
+  .booking-card.booking-card2{
+    max-width: 100%;
+    margin: 12px 10px;
+  }
+}

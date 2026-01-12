@@ -134,7 +134,8 @@
             <h2 class="day-title">📅 第 {{ day.day }} 天（{{ day.date }}）</h2>
 
             <div class="day-head-actions" v-if="canWrite">
-              <button class="btn btn-secondary btn-mini" @click="openEventEditor(day.id, null)">＋ 新增行程</button>
+              <button class="btn btn-primary btn-mini" @click="openEventEditor(day.id, null)">＋ 新增行程</button>
+
             </div>
 
             <div class="day-head-actions" v-else>
@@ -354,6 +355,237 @@
           </div>
         </div>
       </section>
+
+      <!-- =============== 預定頁（任何人可看；登入且成員才可新增/編輯/刪除） =============== -->
+      <section v-else-if="currentPage === 'booking'" class="page">
+
+        <!-- 上方分類：機票 / 住宿 / 租車 / 憑證 -->
+        <div class="segmented segmented-4">
+          <button class="seg-btn" :class="{ active: bookingTab === 'flight' }" @click="bookingTab='flight'" type="button">✈️ 機票</button>
+          <button class="seg-btn" :class="{ active: bookingTab === 'hotel' }"  @click="bookingTab='hotel'"  type="button">🏨 住宿</button>
+          <button class="seg-btn" :class="{ active: bookingTab === 'car' }"    @click="bookingTab='car'"    type="button">🚗 租車</button>
+          <button class="seg-btn" :class="{ active: bookingTab === 'voucher' }"@click="bookingTab='voucher'"type="button">🎫 憑證</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header-row">
+            <div class="card-title">📌 預定資訊</div>
+
+            <button class="btn btn-secondary btn-mini" v-if="canWrite" @click="openBookingEditor(null)">
+              ＋ 新增
+            </button>
+          </div>
+
+          <div v-if="!canWrite" class="readonly-hint" style="margin-top:8px;">
+            只讀模式：你可以查看預定資料；要新增/編輯/刪除請先 Google 登入且被加入 members。
+          </div>
+
+          <div v-if="bookingLoading" class="loading">讀取預定中...</div>
+          <div v-else-if="filteredBookings.length === 0" class="empty-state">尚無資料</div>
+
+          <div
+            v-for="b in filteredBookings"
+            :key="b.id"
+            class="booking-card booking-card2"
+            @click="onBookingCardClick(b)"
+          >
+            <!-- 上方淡藍區塊（像圖2） -->
+            <div class="bk2-topbar">
+              <div class="bk2-airline">{{ b.vendor || bookingTypeLabel(b.type) }}</div>
+              <button
+                v-if="canWrite"
+                class="bk2-mini-btn"
+                type="button"
+                @click.stop="openBookingEditor(b)"
+              >
+                同一張訂單
+              </button>
+            </div>
+
+            <!-- 大訂位代碼 -->
+            <div class="bk2-code">
+              <div class="bk2-code-text">{{ b.code || "—" }}</div>
+            </div>
+
+            <!-- 中間航段卡（flight 才顯示） -->
+            <div v-if="b.type === 'flight'" class="bk2-route">
+              <div class="bk2-col">
+                <div class="bk2-iata">{{ b.from || "—" }}</div>
+                <div class="bk2-time">{{ b.departTime || "—" }}</div>
+                <div class="bk2-chip bk2-chip-green">出發</div>
+              </div>
+
+              <div class="bk2-mid">
+                <div class="bk2-duration">{{ b.duration || "—" }}</div>
+                <div class="bk2-plane">✈️</div>
+                <div class="bk2-date">{{ b.date || "—" }}</div>
+              </div>
+
+              <div class="bk2-col">
+                <div class="bk2-iata">{{ b.to || "—" }}</div>
+                <div class="bk2-time">{{ b.arriveTime || "—" }}</div>
+                <div class="bk2-chip bk2-chip-orange">抵達</div>
+              </div>
+            </div>
+
+            <!-- 非 flight：就用簡潔資訊卡 -->
+            <div v-else class="bk2-route bk2-route-simple">
+              <div class="bk2-simple-title">{{ b.title || "（未命名）" }}</div>
+              <div class="bk2-simple-sub">{{ b.date || "—" }}</div>
+            </div>
+
+            <!-- 行李/機型 -->
+            <div class="bk2-meta">
+              <div class="bk2-meta-item">
+                <div class="bk2-meta-label">BAGGAGE</div>
+                <div class="bk2-meta-value">{{ b.baggage || "—" }}</div>
+              </div>
+              <div class="bk2-meta-divider"></div>
+              <div class="bk2-meta-item">
+                <div class="bk2-meta-label">AIRCRAFT</div>
+                <div class="bk2-meta-value">{{ b.aircraft || "—" }}</div>
+              </div>
+            </div>
+
+            <!-- 價格/購買日 -->
+            <div class="bk2-bottom">
+              <div class="bk2-box">
+                <div class="bk2-box-label">PRICE & TYPE</div>
+                <div class="bk2-box-value">
+                  {{ b.priceTwd ? `NT$${formatNumber(b.priceTwd)}` : "—" }}
+                </div>
+              </div>
+
+              <div class="bk2-box">
+                <div class="bk2-box-label">PURCHASED</div>
+                <div class="bk2-box-value">{{ b.purchasedAt || "—" }}</div>
+                <div class="bk2-box-sub">via 官網</div>
+              </div>
+            </div>
+
+            <!-- 底部按鈕（像圖2的「編輯航班資訊」） -->
+            <button
+              v-if="canWrite"
+              class="bk2-edit-btn"
+              type="button"
+              @click.stop="openBookingEditor(b)"
+            >
+              ✏️ 編輯航班資訊
+            </button>
+          </div>
+
+        </div>
+
+        <!-- 編輯 Modal -->
+        <div v-if="bookingEditor.open" class="modal-overlay" @click.self="closeBookingEditor">
+          <div class="modal">
+            <div class="modal-title">🧾 編輯預定</div>
+            <div class="modal-subtitle">
+              類型/代碼/日期/價格等都在這裡維護。
+              <span v-if="!canWrite" style="opacity:.75;">（目前只讀）</span>
+            </div>
+
+            <div class="form-grid" style="margin-top:10px;">
+              <label class="field">
+                <div class="field-label">類型</div>
+                <select class="field-input" v-model="bookingEditor.form.type" :disabled="!canWrite">
+                  <option value="flight">機票</option>
+                  <option value="hotel">住宿</option>
+                  <option value="car">租車</option>
+                  <option value="voucher">憑證</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <div class="field-label">訂位代碼</div>
+                <input class="field-input" v-model="bookingEditor.form.code" :disabled="!canWrite" placeholder="例如：BX796" />
+              </label>
+
+              <label class="field field-span">
+                <div class="field-label">航空/商家（vendor）</div>
+                <input class="field-input" v-model="bookingEditor.form.vendor" :disabled="!canWrite" placeholder="例如：釜山航空" />
+              </label>
+
+              <label class="field field-span" v-if="bookingEditor.form.type !== 'flight'">
+                <div class="field-label">標題（住宿/租車/憑證用）</div>
+                <input class="field-input" v-model="bookingEditor.form.title" :disabled="!canWrite" placeholder="例如：APA Hotel 難波站" />
+              </label>
+
+              <label class="field">
+                <div class="field-label">日期</div>
+                <input class="field-input" type="date" v-model="bookingEditor.form.date" :disabled="!canWrite" />
+              </label>
+
+              <label class="field">
+                <div class="field-label">總價（TWD）</div>
+                <input class="field-input" type="number" v-model.number="bookingEditor.form.priceTwd" :disabled="!canWrite" placeholder="" />
+              </label>
+
+              <!-- Flight 欄位 -->
+              <template v-if="bookingEditor.form.type === 'flight'">
+                <label class="field">
+                  <div class="field-label">出發地</div>
+                  <input class="field-input" v-model="bookingEditor.form.from" :disabled="!canWrite" />
+                </label>
+
+                <label class="field">
+                  <div class="field-label">抵達地</div>
+                  <input class="field-input" v-model="bookingEditor.form.to" :disabled="!canWrite" />
+                </label>
+
+                <label class="field">
+                  <div class="field-label">出發時間</div>
+                  <input class="field-input" type="time" v-model="bookingEditor.form.departTime" :disabled="!canWrite" />
+                </label>
+
+                <label class="field">
+                  <div class="field-label">抵達時間</div>
+                  <input class="field-input" type="time" v-model="bookingEditor.form.arriveTime" :disabled="!canWrite" />
+                </label>
+
+                <label class="field">
+                  <div class="field-label">飛行時間（例如 02h25m）</div>
+                  <input class="field-input" v-model="bookingEditor.form.duration" :disabled="!canWrite" />
+                </label>
+
+                <label class="field">
+                  <div class="field-label">機型（例如 A321）</div>
+                  <input class="field-input" v-model="bookingEditor.form.aircraft" :disabled="!canWrite" />
+                </label>
+              </template>
+
+              <label class="field">
+                <div class="field-label">行李（例如 15kg）</div>
+                <input class="field-input" v-model="bookingEditor.form.baggage" :disabled="!canWrite" />
+              </label>
+
+              <label class="field">
+                <div class="field-label">購買日（YYYY/MM/DD）</div>
+                <input class="field-input" v-model="bookingEditor.form.purchasedAt" :disabled="!canWrite" placeholder="例如：2025/11/14" />
+              </label>
+            </div>
+
+            <div class="row-right">
+              <button class="btn btn-secondary" @click="closeBookingEditor">關閉</button>
+
+              <button class="btn btn-primary" @click="saveBookingEdit" :disabled="!canWrite">
+                儲存
+              </button>
+
+              <button class="btn btn-danger" v-if="bookingEditor.isEdit" @click="deleteBooking" :disabled="!canWrite">
+                刪除
+              </button>
+            </div>
+
+            <div class="modal-hint">
+              提醒：只有「登入且在 members」的成員可以儲存。
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+
 
       <!-- =============== 記帳頁（未登入＝只看明細；登入且成員＝可記帳/編輯） =============== -->
       <section v-else-if="currentPage === 'accounting'" class="page">
@@ -834,9 +1066,8 @@
         </div>
       </section>
       <!-- =============== 備用頁（美食 / 地點） =============== -->
+<!-- =============== 備用頁（美食 / 地點） =============== -->
       <section v-else-if="currentPage === 'backup'" class="page">
-
-
         <div class="segmented">
           <button class="seg-btn" :class="{ active: backupTab === 'food' }" @click="backupTab='food'" type="button">
             🍜 美食
@@ -846,22 +1077,183 @@
           </button>
         </div>
 
+        <!-- ===== 美食 ===== -->
         <div v-if="backupTab === 'food'" class="card">
           <div class="card-title">🍜 美食</div>
-          <div class="card-subtitle">先放口袋名單：店名 / 分店 / 想吃品項 / 排隊預估。</div>
-          <div class="empty-state">（先做頁面骨架；若你要可新增/排序/同步 Firebase，我可以下一步幫你接資料結構。）</div>
+          <div class="card-subtitle">店名 / 分店 / 想吃品項 / 排隊預估；可一鍵導到 Google Maps。</div>
+
+          <div class="row-right" style="margin-top:10px;">
+            <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('food', null)">＋ 新增</button>
+            <div v-else class="readonly-hint">只讀模式：登入且在 members 才能新增/編輯。</div>
+          </div>
+
+          <div v-if="backup.food.loading" class="empty-state">讀取中...</div>
+          <div v-else-if="backup.food.error" class="empty-state">讀取失敗：{{ backup.food.error }}</div>
+
+          <div v-else-if="!backup.food.items.length" class="empty-state">
+            尚未建立美食口袋名單。
+          </div>
+
+          <div v-else class="list">
+            <div v-for="it in backup.food.items" :key="it.id" class="booking-card" style="cursor:pointer;" @click="openBackupEditor('food', it)">
+              <div class="booking-main">
+                <div class="booking-top">
+                  <div class="booking-code">{{ (it.branch || '').trim() ? it.branch : '（未填分店）' }}</div>
+                  <div class="booking-vendor">{{ it.title || '（未命名）' }}</div>
+                </div>
+
+                <div class="booking-simple">
+                  <div class="booking-simple-title">
+                    想吃：{{ it.mustEat || '—' }}
+                  </div>
+                  <div class="booking-simple-sub">
+                    排隊：{{ (it.queueMins || it.queueMins === 0) ? `${it.queueMins} 分` : '—' }}
+                  </div>
+                </div>
+
+                <div class="booking-bottom">
+                  <div class="booking-mini">
+                    <div class="mini-label">備註</div>
+                    <div class="mini-value">{{ it.note || '—' }}</div>
+                  </div>
+
+                  <div class="booking-mini">
+                    <div class="mini-label">導航</div>
+                    <div class="mini-value">
+                      <button class="btn btn-secondary btn-mini" type="button" @click.stop="openNavigation(it.mapQuery || it.title)">
+                        Google Maps
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
+        <!-- ===== 地點 ===== -->
         <div v-else class="card">
           <div class="card-title">📍 地點</div>
-          <div class="card-subtitle">先放景點/商店：地址 / 營業時間 / 距離備註。</div>
-          <div class="empty-state">（先做頁面骨架；需要我幫你做「可點開 Google Maps」也很快。）</div>
+          <div class="card-subtitle">景點/商店：地址 / 營業時間 / 距離備註；可一鍵導到 Google Maps。</div>
+
+          <div class="row-right" style="margin-top:10px;">
+            <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('places', null)">＋ 新增</button>
+            <div v-else class="readonly-hint">只讀模式：登入且在 members 才能新增/編輯。</div>
+          </div>
+
+          <div v-if="backup.places.loading" class="empty-state">讀取中...</div>
+          <div v-else-if="backup.places.error" class="empty-state">讀取失敗：{{ backup.places.error }}</div>
+
+          <div v-else-if="!backup.places.items.length" class="empty-state">
+            尚未建立地點口袋名單。
+          </div>
+
+          <div v-else class="list">
+            <div v-for="it in backup.places.items" :key="it.id" class="booking-card" style="cursor:pointer;" @click="openBackupEditor('places', it)">
+              <div class="booking-main">
+                <div class="booking-top">
+                  <div class="booking-code">{{ it.hours || '（未填營業時間）' }}</div>
+                  <div class="booking-vendor">{{ it.title || '（未命名）' }}</div>
+                </div>
+
+                <div class="booking-simple">
+                  <div class="booking-simple-title">地址：{{ it.address || '—' }}</div>
+                  <div class="booking-simple-sub">備註：{{ it.note || '—' }}</div>
+                </div>
+
+                <div class="booking-bottom">
+                  <div class="booking-mini">
+                    <div class="mini-label">導航</div>
+                    <div class="mini-value">
+                      <button class="btn btn-secondary btn-mini" type="button" @click.stop="openNavigation(it.mapQuery || it.address || it.title)">
+                        Google Maps
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== 備用 Modal：新增/編輯 ===== -->
+        <div v-if="backupEditor.open" class="modal-overlay" @click.self="closeBackupEditor">
+          <div class="modal">
+            <div class="modal-title">🧷 備用清單</div>
+            <div class="modal-subtitle">
+              {{ backupEditor.kind === 'food' ? '美食' : '地點' }}：新增/編輯/刪除，並可用 mapQuery 一鍵導航。
+              <span v-if="!canWrite" style="opacity:.75;">（目前只讀）</span>
+            </div>
+
+            <div class="form-grid" style="margin-top:10px;">
+              <label class="field field-span">
+                <div class="field-label">名稱</div>
+                <input class="field-input" v-model="backupEditor.form.title" :disabled="!canWrite" placeholder="例如：金龍拉麵 / 清水寺" />
+              </label>
+
+              <template v-if="backupEditor.kind === 'food'">
+                <label class="field">
+                  <div class="field-label">分店</div>
+                  <input class="field-input" v-model="backupEditor.form.branch" :disabled="!canWrite" placeholder="例如：道頓堀店" />
+                </label>
+
+                <label class="field">
+                  <div class="field-label">排隊預估（分鐘）</div>
+                  <input class="field-input" type="number" v-model.number="backupEditor.form.queueMins" :disabled="!canWrite" placeholder="例如：20" />
+                </label>
+
+                <label class="field field-span">
+                  <div class="field-label">想吃品項</div>
+                  <input class="field-input" v-model="backupEditor.form.mustEat" :disabled="!canWrite" placeholder="例如：豚骨拉麵 + 溏心蛋" />
+                </label>
+              </template>
+
+              <template v-else>
+                <label class="field field-span">
+                  <div class="field-label">地址</div>
+                  <input class="field-input" v-model="backupEditor.form.address" :disabled="!canWrite" placeholder="例如：京都府京都市東山区清水1-294" />
+                </label>
+
+                <label class="field field-span">
+                  <div class="field-label">營業時間</div>
+                  <input class="field-input" v-model="backupEditor.form.hours" :disabled="!canWrite" placeholder="例如：06:00–18:00" />
+                </label>
+              </template>
+
+              <label class="field field-span">
+                <div class="field-label">mapQuery（Google Maps 搜尋字）</div>
+                <input class="field-input" v-model="backupEditor.form.mapQuery" :disabled="!canWrite" placeholder="不填會用名稱/地址當搜尋字" />
+              </label>
+
+              <label class="field field-span">
+                <div class="field-label">備註</div>
+                <input class="field-input" v-model="backupEditor.form.note" :disabled="!canWrite" placeholder="例如：晚上10點後人少 / 順路安排" />
+              </label>
+            </div>
+
+            <div class="row-right">
+              <button class="btn btn-secondary" @click="closeBackupEditor">關閉</button>
+
+              <button class="btn btn-primary" @click="saveBackupEdit" :disabled="!canWrite">
+                儲存
+              </button>
+
+              <button class="btn btn-danger" v-if="backupEditor.isEdit" @click="deleteBackupItem" :disabled="!canWrite">
+                刪除
+              </button>
+            </div>
+
+            <div class="modal-hint">
+              提醒：只有「登入且在 members」的成員可以儲存。
+            </div>
+          </div>
         </div>
       </section>
 
+
     </main>
 
-    <nav class="bottom-nav bottom-nav-5">
+    <nav class="bottom-nav bottom-nav-6">
       <button
         type="button"
         class="nav-item"
@@ -874,6 +1266,20 @@
         <div class="nav-icon">🗓️</div>
         <div class="nav-label">行程</div>
       </button>
+
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'booking' }"
+        @pointerup.prevent="goPage('booking')"
+        @touchend.prevent="goPage('booking')"
+        @click.prevent="goPage('booking')"
+      >
+        <div class="nav-icon">🗂️</div>
+        <div class="nav-label">預定</div>
+      </button>
+
+
 
       <button
         type="button"
@@ -1101,7 +1507,230 @@ function unsubscribePresence() {
 
 /* ===================== Pages ===================== */
 const currentPage = ref("itinerary");
+
+/* ===================== Booking（預定） ===================== */
+const bookingTab = ref("flight"); // flight | hotel | car | voucher
+const bookingLoading = ref(false);
+const bookings = ref([]); // [{id, type, ...}]
+let unsubBookings = null;
+
+const filteredBookings = computed(() => {
+  const t = bookingTab.value;
+  return (bookings.value || []).filter((b) => (b.type || "flight") === t);
+});
+
+function bookingTypeLabel(type) {
+  if (type === "flight") return "機票";
+  if (type === "hotel") return "住宿";
+  if (type === "car") return "租車";
+  if (type === "voucher") return "憑證";
+  return "預定";
+}
+
+
 const backupTab = ref("food"); // food | places
+/* ===================== Backup（備用：美食/地點） ===================== */
+const backup = ref({
+  food: { items: [], loading: false, error: "" },
+  places: { items: [], loading: false, error: "" },
+});
+
+let unsubBackupFood = null;
+let unsubBackupPlaces = null;
+
+function backupCollectionKey(kind) {
+  return kind === "food" ? "backup_food" : "backup_places";
+}
+
+function subscribeBackup(kind) {
+  const key = backupCollectionKey(kind);
+
+  backup.value[kind].loading = true;
+  backup.value[kind].error = "";
+
+  const qy = query(collection(db, "trips", DEFAULT_TRIP_ID, key), orderBy("createdAt", "desc"));
+
+  const unsub = onSnapshot(
+    qy,
+    (snap) => {
+      backup.value[kind].items = snap.docs.map((d) => {
+        const data = d.data() || {};
+        return {
+          id: d.id,
+          title: data.title || "",
+          note: data.note || "",
+          mapQuery: data.mapQuery || "",
+          order: typeof data.order === "number" ? data.order : null,
+          createdAt: data.createdAt || null,
+          updatedAt: data.updatedAt || null,
+
+          // food
+          branch: data.branch || "",
+          mustEat: data.mustEat || "",
+          queueMins: (typeof data.queueMins === "number") ? data.queueMins : null,
+
+          // places
+          address: data.address || "",
+          hours: data.hours || "",
+        };
+      });
+
+      backup.value[kind].loading = false;
+    },
+    (err) => {
+      console.error("讀取 backup 失敗：", err);
+      backup.value[kind].items = [];
+      backup.value[kind].loading = false;
+      backup.value[kind].error = err?.message ? String(err.message) : "未知錯誤";
+    }
+  );
+
+  if (kind === "food") unsubBackupFood = unsub;
+  if (kind === "places") unsubBackupPlaces = unsub;
+}
+
+function subscribeBackupAll() {
+  if (unsubBackupFood) unsubBackupFood();
+  if (unsubBackupPlaces) unsubBackupPlaces();
+  subscribeBackup("food");
+  subscribeBackup("places");
+}
+
+function unsubscribeBackupAll() {
+  if (unsubBackupFood) unsubBackupFood();
+  if (unsubBackupPlaces) unsubBackupPlaces();
+  unsubBackupFood = null;
+  unsubBackupPlaces = null;
+}
+
+/* ===== Backup editor modal ===== */
+const backupEditor = ref({
+  open: false,
+  kind: "food", // food | places
+  isEdit: false,
+  id: "",
+  form: {
+    title: "",
+    note: "",
+    mapQuery: "",
+
+    // food
+    branch: "",
+    mustEat: "",
+    queueMins: null,
+
+    // places
+    address: "",
+    hours: "",
+  },
+});
+
+function openBackupEditor(kind, itemOrNull) {
+  backupEditor.value.open = true;
+  backupEditor.value.kind = kind;
+
+  if (!itemOrNull) {
+    backupEditor.value.isEdit = false;
+    backupEditor.value.id = "";
+    backupEditor.value.form = {
+      title: "",
+      note: "",
+      mapQuery: "",
+      branch: "",
+      mustEat: "",
+      queueMins: null,
+      address: "",
+      hours: "",
+    };
+    return;
+  }
+
+  backupEditor.value.isEdit = true;
+  backupEditor.value.id = itemOrNull.id || "";
+  backupEditor.value.form = {
+    title: itemOrNull.title || "",
+    note: itemOrNull.note || "",
+    mapQuery: itemOrNull.mapQuery || "",
+
+    branch: itemOrNull.branch || "",
+    mustEat: itemOrNull.mustEat || "",
+    queueMins: (typeof itemOrNull.queueMins === "number") ? itemOrNull.queueMins : null,
+
+    address: itemOrNull.address || "",
+    hours: itemOrNull.hours || "",
+  };
+}
+
+function closeBackupEditor() {
+  backupEditor.value.open = false;
+}
+
+async function saveBackupEdit() {
+  if (!canWrite.value) return alert("只讀模式無法儲存：請先登入並被加入 members。");
+
+  const kind = backupEditor.value.kind;
+  const key = backupCollectionKey(kind);
+
+  const title = String(backupEditor.value.form.title || "").trim();
+  if (!title) return alert("請填寫名稱。");
+
+  const payload = {
+    title,
+    note: String(backupEditor.value.form.note || "").trim(),
+    mapQuery: String(backupEditor.value.form.mapQuery || "").trim(),
+    order: Date.now(),
+    updatedAt: serverTimestamp(),
+  };
+
+  if (kind === "food") {
+    payload.branch = String(backupEditor.value.form.branch || "").trim();
+    payload.mustEat = String(backupEditor.value.form.mustEat || "").trim();
+    payload.queueMins =
+      typeof backupEditor.value.form.queueMins === "number"
+        ? backupEditor.value.form.queueMins
+        : null;
+  } else {
+    payload.address = String(backupEditor.value.form.address || "").trim();
+    payload.hours = String(backupEditor.value.form.hours || "").trim();
+  }
+
+  try {
+    if (backupEditor.value.isEdit && backupEditor.value.id) {
+      await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, backupEditor.value.id), payload);
+    } else {
+      await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, key), {
+        ...payload,
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    closeBackupEditor();
+  } catch (e) {
+    console.error("儲存 backup 失敗：", e);
+    alert(`儲存失敗：${e?.code || ""} ${e?.message || e}`);
+  }
+
+}
+
+async function deleteBackupItem() {
+  if (!canWrite.value) return alert("只讀模式無法刪除：請先登入並被加入 members。");
+  if (!backupEditor.value.isEdit || !backupEditor.value.id) return;
+
+  const kind = backupEditor.value.kind;
+  const key = backupCollectionKey(kind);
+
+  const ok = confirm("確定要刪除這筆嗎？");
+  if (!ok) return;
+
+  try {
+    await deleteDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, backupEditor.value.id));
+    closeBackupEditor();
+  } catch (e) {
+    console.error("刪除 backup 失敗：", e);
+    alert("刪除失敗（可能是 rules 不允許 delete）");
+  }
+}
+
 // ✅ Bottom nav 點擊回饋（對應 template 的 :class="{ ..., pulse: navPulse === 'xxx' }"）
 const navPulse = ref("");
 
@@ -1158,12 +1787,14 @@ let navPulseTimer = null;
 
 const pageTitle = computed(() => {
   if (currentPage.value === "itinerary") return "行程";
+  if (currentPage.value === "booking") return "預定";
   if (currentPage.value === "accounting") return "記帳";
   if (currentPage.value === "prep") return "準備";
   if (currentPage.value === "tools") return "工具";
   if (currentPage.value === "backup") return "備用";
   return "";
 });
+
 
 /* ===================== Lifecycle ===================== */
 onMounted(async () => {
@@ -1172,6 +1803,8 @@ onMounted(async () => {
   await reloadExpenses();
   await loadPrepAll();
   await refreshFxTool();
+  subscribeBookings();
+
 
   onAuthStateChanged(auth, async (u) => {
   // ✅ 這行放最上面：不管後面發生什麼錯，都一定先印出登入狀態
@@ -1179,6 +1812,7 @@ onMounted(async () => {
 
   try {
     user.value = u || null;
+    
 
     membershipChecked.value = false;
     isMember.value = false;
@@ -1194,6 +1828,7 @@ onMounted(async () => {
       if (accountingTab.value === "entry") accountingTab.value = "detail";
 
       console.log("[AUTH] canWrite =", canWrite.value, "(signed out)");
+      unsubscribeBackupAll();
       return;
     }
 
@@ -1203,6 +1838,14 @@ onMounted(async () => {
     startHeartbeat();
 
     await checkMembership();
+
+    // ✅ 只有成員才訂閱備用清單（避免一開始 permission-denied 後永遠看不到）
+    if (isMember.value) {
+      subscribeBackupAll();
+    } else {
+      unsubscribeBackupAll();
+    }
+
 
     console.log("[AUTH] membershipChecked =", membershipChecked.value, "isMember =", isMember.value, "canWrite =", canWrite.value);
 
@@ -1222,9 +1865,11 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  unsubscribeBookings();
   stopHeartbeat();
   unsubscribePresence();
   unsubscribePrepAll();
+  unsubscribeBackupAll();
 
   if (navPulseTimer) clearTimeout(navPulseTimer);
 });
@@ -2289,6 +2934,153 @@ function currencySymbol(c) {
 }
 
 /* ===================== Expense editor modal ===================== */
+
+const bookingEditor = ref({
+  open: false,
+  isEdit: false,
+  originId: "",
+  form: {
+    type: "flight",
+    vendor: "",
+    code: "",
+    title: "",
+    from: "",
+    to: "",
+    departTime: "",
+    arriveTime: "",
+    duration: "",
+    date: new Date().toISOString().slice(0, 10),
+    baggage: "",
+    aircraft: "",
+    priceTwd: null,
+    purchasedAt: "",
+  },
+});
+
+function onBookingCardClick(b) {
+  if (!canWrite.value) return; // 只讀：不彈編輯
+  openBookingEditor(b);
+}
+
+function openBookingEditor(b) {
+  if (!canWrite.value) {
+    bookingEditor.value.open = false;
+    return;
+  }
+
+  if (!b) {
+    bookingEditor.value.open = true;
+    bookingEditor.value.isEdit = false;
+    bookingEditor.value.originId = "";
+    bookingEditor.value.form = {
+      type: bookingTab.value || "flight",
+      vendor: "",
+      code: "",
+      title: "",
+      from: "",
+      to: "",
+      departTime: "",
+      arriveTime: "",
+      duration: "",
+      date: new Date().toISOString().slice(0, 10),
+      baggage: "",
+      aircraft: "",
+      priceTwd: null,
+      purchasedAt: "",
+    };
+    return;
+  }
+
+  bookingEditor.value.open = true;
+  bookingEditor.value.isEdit = true;
+  bookingEditor.value.originId = b.id;
+  bookingEditor.value.form = {
+    type: b.type || "flight",
+    vendor: b.vendor || "",
+    code: b.code || "",
+    title: b.title || "",
+    from: b.from || "",
+    to: b.to || "",
+    departTime: b.departTime || "",
+    arriveTime: b.arriveTime || "",
+    duration: b.duration || "",
+    date: b.date || new Date().toISOString().slice(0, 10),
+    baggage: b.baggage || "",
+    aircraft: b.aircraft || "",
+    priceTwd: typeof b.priceTwd === "number" ? b.priceTwd : null,
+    purchasedAt: b.purchasedAt || "",
+  };
+}
+
+function closeBookingEditor() {
+  bookingEditor.value.open = false;
+  bookingEditor.value.isEdit = false;
+  bookingEditor.value.originId = "";
+}
+
+async function saveBookingEdit() {
+  if (!canWrite.value) return alert("只讀模式無法儲存。請先登入並被加入 members。");
+
+  const f = bookingEditor.value.form;
+  if (!f.type) return alert("請選類型");
+  if (!f.date) return alert("請填日期");
+
+  const payload = {
+    type: String(f.type || "flight"),
+    vendor: String(f.vendor || "").trim(),
+    code: String(f.code || "").trim(),
+    title: String(f.title || "").trim(),
+    from: String(f.from || "").trim(),
+    to: String(f.to || "").trim(),
+    departTime: String(f.departTime || "").trim(),
+    arriveTime: String(f.arriveTime || "").trim(),
+    duration: String(f.duration || "").trim(),
+    date: String(f.date || "").trim(),
+    baggage: String(f.baggage || "").trim(),
+    aircraft: String(f.aircraft || "").trim(),
+    priceTwd: Number.isFinite(Number(f.priceTwd)) ? Number(f.priceTwd) : null,
+    purchasedAt: String(f.purchasedAt || "").trim(),
+    uid: user.value.uid,
+    displayName: user.value.displayName || "使用者",
+    updatedAt: serverTimestamp(),
+  };
+
+  try {
+    if (!bookingEditor.value.isEdit) {
+      await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, "bookings"), {
+        ...payload,
+        createdAt: serverTimestamp(),
+      });
+    } else {
+      const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingEditor.value.originId);
+      await updateDoc(refDoc, payload);
+    }
+
+    closeBookingEditor();
+    alert("儲存成功！");
+  } catch (e) {
+    console.error("儲存 booking 失敗：", e);
+    alert("儲存失敗（可能是 rules 不允許 / 網路問題）");
+  }
+}
+
+async function deleteBooking() {
+  if (!canWrite.value) return alert("只讀模式無法刪除。請先登入並被加入 members。");
+  if (!bookingEditor.value.isEdit) return;
+  if (!confirm("確定要刪除此預定？")) return;
+
+  try {
+    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingEditor.value.originId);
+    await deleteDoc(refDoc);
+    closeBookingEditor();
+    alert("刪除成功！");
+  } catch (e) {
+    console.error("刪除 booking 失敗：", e);
+    alert("刪除失敗（多半是 rules 目前不允許 delete）");
+  }
+}
+
+
 const expenseEditor = ref({
   open: false,
   origin: null,
@@ -2543,6 +3335,54 @@ async function loadPrepAll() {
   subscribePrepList("luggage");
   subscribePrepList("shopping");
 }
+
+function subscribeBookings() {
+  if (unsubBookings) unsubBookings();
+
+  bookingLoading.value = true;
+  const qy = query(collection(db, "trips", DEFAULT_TRIP_ID, "bookings"), orderBy("createdAt", "desc"));
+
+  unsubBookings = onSnapshot(
+    qy,
+    (snap) => {
+      bookings.value = snap.docs.map((d) => {
+        const data = d.data() || {};
+        return {
+          id: d.id,
+          type: data.type || "flight",
+          vendor: data.vendor || "",
+          code: data.code || "",
+          title: data.title || "",
+          from: data.from || "",
+          to: data.to || "",
+          departTime: data.departTime || "",
+          arriveTime: data.arriveTime || "",
+          duration: data.duration || "",
+          date: data.date || "",
+          baggage: data.baggage || "",
+          aircraft: data.aircraft || "",
+          priceTwd: typeof data.priceTwd === "number" ? data.priceTwd : null,
+          purchasedAt: data.purchasedAt || "",
+          uid: data.uid || "",
+          displayName: data.displayName || "",
+          createdAt: data.createdAt || null,
+        };
+      });
+      bookingLoading.value = false;
+    },
+    (err) => {
+      console.error("讀取 bookings 失敗：", err);
+      bookings.value = [];
+      bookingLoading.value = false;
+    }
+  );
+}
+
+function unsubscribeBookings() {
+  if (unsubBookings) unsubBookings();
+  unsubBookings = null;
+}
+
 
 function prepCollectionKey(kind) {
   if (kind === "todo") return "prep_todo";
