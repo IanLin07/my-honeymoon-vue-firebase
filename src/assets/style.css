@@ -687,7 +687,9 @@ body{
   align-items:flex-start;
   justify-content:space-between;
   gap:10px;
+  margin-bottom: 10px; /* ✅ 與第一個行程卡片拉開距離 */
 }
+
 .day-head-actions{
   display:flex;
   gap:10px;

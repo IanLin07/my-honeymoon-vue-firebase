@@ -83,7 +83,7 @@
                 <div class="weather-top-left">
                   <div class="weather-city">
                     <span class="pin">📍</span>
-                    <span>{{ day.city || getDayCity(day) }}</span>
+                    <span>{{ cityLabel(day.city || getDayCity(day)) }}</span>
                   </div>
 
                   <div class="weather-desc">
@@ -134,7 +134,7 @@
             <h2 class="day-title">📅 第 {{ day.day }} 天（{{ day.date }}）</h2>
 
             <div class="day-head-actions" v-if="canWrite">
-              <button class="btn btn-primary btn-mini" @click="openEventEditor(day.id, null)">＋ 新增行程</button>
+              <button class="btn btn-primary btn-mini" @click="openEventEditor(day.id, null)">＋ 新增</button>
 
             </div>
 
@@ -222,7 +222,7 @@
                 ></textarea>
 
                 <div class="note-actions">
-                  <!-- ✅ 清除本行程筆記（在展開狀態也能一鍵清） -->
+                  <!-- ✅ 刪除：只在展開筆記時顯示 -->
                   <button
                     v-if="canWrite"
                     class="icon-btn icon-danger"
@@ -239,12 +239,13 @@
                     </svg>
                   </button>
 
-
-                  <!-- ✅ 收合＝自動儲存 + 收合 -->
+                  <!-- ✅ 收合：自動儲存 + 收合 -->
                   <button class="btn btn-secondary" @click.stop="collapseAndSaveNote(day.id, idx)">
                     收合
                   </button>
                 </div>
+
+
 
 
                 <div v-if="!canWrite" class="readonly-hint" style="margin-top:8px;">
@@ -254,29 +255,10 @@
             </div>
 
             <div v-if="noteExists(event) && !event.showNote" class="note-between">
-              <div class="note-between-head">
-                <div class="note-between-title">📝 筆記</div>
-
-                <!-- ✅ 刪除筆記圖示固定在最右 -->
-                <button
-                  v-if="canWrite"
-                  class="icon-btn icon-danger"
-                  type="button"
-                  title="清除本行程筆記"
-                  aria-label="清除本行程筆記"
-                  @click.stop="clearEventNote(day.id, idx)"
-                >
-                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      fill="currentColor"
-                      d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 7h2v9h-2v-9zm4 0h2v9h-2v-9zM7 10h2v9H7v-9zm1-1h10l-1 13H9L8 9z"
-                    />
-                  </svg>
-                </button>
-              </div>
-
               <div class="note-between-body">{{ event.note }}</div>
             </div>
+
+
 
           </div>
 
@@ -285,10 +267,20 @@
           </div>
         </div>
 
-        <div v-if="planLoading" class="loading">讀取行程中... 💖</div>
         <div v-if="!planLoading && plan.length === 0" class="empty-state">
-          目前 plan 是空的：trips/{{ DEFAULT_TRIP_ID }}/plan
+          <div>目前 plan 是空的：trips/{{ DEFAULT_TRIP_ID }}/plan</div>
+
+          <div v-if="canWrite" style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
+            <button class="btn btn-primary btn-mini" @click="initPlanDays()">
+              初始化行程（建立 DAY1~DAY7）
+            </button>
+          </div>
+
+          <div v-else style="margin-top:10px; opacity:.75;">
+            你已登入但若仍看不到，請確認你在 members 內，且 rules 允許讀取 plan。
+          </div>
         </div>
+
 
         <!-- 行程編輯 Modal（長按行程跳出） -->
         <div v-if="eventEditor.open" class="modal-overlay" @click.self="closeEventEditor">
@@ -372,7 +364,7 @@
             <div class="card-title">📌 預定資訊</div>
 
             <button class="btn btn-secondary btn-mini" v-if="canWrite" @click="openBookingEditor(null)">
-              ＋ 新增
+              新增
             </button>
           </div>
 
@@ -1083,7 +1075,7 @@
           <div class="card-subtitle">店名 / 分店 / 想吃品項 / 排隊預估；可一鍵導到 Google Maps。</div>
 
           <div class="row-right" style="margin-top:10px;">
-            <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('food', null)">＋ 新增</button>
+            <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('food', null)">新增</button>
             <div v-else class="readonly-hint">只讀模式：登入且在 members 才能新增/編輯。</div>
           </div>
 
@@ -1137,7 +1129,7 @@
           <div class="card-subtitle">景點/商店：地址 / 營業時間 / 距離備註；可一鍵導到 Google Maps。</div>
 
           <div class="row-right" style="margin-top:10px;">
-            <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('places', null)">＋ 新增</button>
+            <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('places', null)">新增</button>
             <div v-else class="readonly-hint">只讀模式：登入且在 members 才能新增/編輯。</div>
           </div>
 
@@ -1514,10 +1506,51 @@ const bookingLoading = ref(false);
 const bookings = ref([]); // [{id, type, ...}]
 let unsubBookings = null;
 
+function bookingDateKey(d) {
+  // d 預期是 "YYYY-MM-DD"；無日期的排到最後
+  const s = String(d || "").trim();
+  if (!s) return Number.POSITIVE_INFINITY;
+
+  // 只取 YYYY-MM-DD，避免有人存到帶時間的字串
+  const iso = s.slice(0, 10);
+  // ISO 格式可以直接字串比較，但這裡轉成數字 key 更穩
+  const key = Number(iso.replaceAll("-", ""));
+  return Number.isFinite(key) ? key : Number.POSITIVE_INFINITY;
+}
+
+function timeKey(t) {
+  // "HH:MM" -> minutes；空值排後面
+  const s = String(t || "").trim();
+  if (!s) return Number.POSITIVE_INFINITY;
+  const m = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!m) return Number.POSITIVE_INFINITY;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
 const filteredBookings = computed(() => {
   const t = bookingTab.value;
-  return (bookings.value || []).filter((b) => (b.type || "flight") === t);
+
+  // 先篩選 tab，再排序（回傳新陣列，避免動到原始 bookings）
+  const list = (bookings.value || []).filter((b) => (b.type || "flight") === t);
+
+  return [...list].sort((a, b) => {
+    // 1) 日期：越早越前
+    const ad = bookingDateKey(a.date);
+    const bd = bookingDateKey(b.date);
+    if (ad !== bd) return ad - bd;
+
+    // 2) 同一天：機票用出發時間（越早越前）；非機票沒有就自然排後
+    const at = timeKey(a.departTime);
+    const bt = timeKey(b.departTime);
+    if (at !== bt) return at - bt;
+
+    // 3) 再同：用 createdAt 當穩定排序（越新越後/越前都可；這裡用越早越前）
+    const ac = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+    const bc = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+    return ac - bc;
+  });
 });
+
 
 function bookingTypeLabel(type) {
   if (type === "flight") return "機票";
@@ -1735,6 +1768,16 @@ async function deleteBackupItem() {
 const navPulse = ref("");
 
 // ✅ 底部切換頁面：桌機 click / 手機 tap 通用
+function scrollToTopNow() {
+  // 置頂：支援大多數瀏覽器 + 手機 webview
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+
+  // 保險：若未來改成容器滾動，也能同步置頂
+  const main = document.querySelector(".app-main");
+  if (main) main.scrollTop = 0;
+}
+
+
 function goPage(page) {
   // 避免重複點擊同頁還一直觸發
   if (currentPage.value === page) {
@@ -1747,6 +1790,12 @@ function goPage(page) {
   }
 
   currentPage.value = page;
+// ✅ 切換到「預定」頁面時自動置頂
+if (page === "booking") {
+  // 用兩段 rAF 保證 DOM 切頁後滾動一定生效（手機 WebView 更穩）
+  requestAnimationFrame(() => requestAnimationFrame(scrollToTopNow));
+}
+
 
   // 點擊動畫（你 CSS 已有 .nav-item.pulse 的 keyframes）
   navPulse.value = page;
@@ -1773,16 +1822,7 @@ function goPage(page) {
 /*const navPulse = ref("");*/
 let navPulseTimer = null;
 
-/*function goPage(page) {
-  currentPage.value = page;
 
-  // 觸發一次短促的 pulse（視覺微彈＝類 haptic 體感）
-  navPulse.value = page;
-  if (navPulseTimer) clearTimeout(navPulseTimer);
-  navPulseTimer = setTimeout(() => {
-    if (navPulse.value === page) navPulse.value = "";
-  }, 240);
-}*/
 
 
 const pageTitle = computed(() => {
@@ -1838,6 +1878,11 @@ onMounted(async () => {
     startHeartbeat();
 
     await checkMembership();
+    // ✅ 重要：登入且通過 members 檢查後，重新讀取 plan（避免初次未登入讀取失敗後一直為空）
+    if (isMember.value) {
+      await loadPlan();
+    }
+
 
     // ✅ 只有成員才訂閱備用清單（避免一開始 permission-denied 後永遠看不到）
     if (isMember.value) {
@@ -2138,6 +2183,47 @@ async function loadPlan() {
   }
 }
 
+async function initPlanDays() {
+  if (!canWrite.value) return alert("只讀模式無法初始化。請先登入並被加入 members。");
+
+  // 用今天當起始日，建立 7 天
+  const start = new Date();
+  const toYMD = (d) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  try {
+    // 連續寫入 7 個 day 文件：D1~D7
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const dayId = `D${i + 1}`;
+
+      const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+      await setDoc(
+        dayRef,
+        {
+          day: i + 1,
+          date: toYMD(d),
+          events: [],
+        },
+        { merge: true }
+      );
+    }
+
+    alert("初始化完成：已建立 DAY1~DAY7");
+    await loadPlan();
+  } catch (e) {
+    console.error("初始化 plan 失敗：", e);
+    const msg = e?.code ? `${e.code}` : (e?.message || "未知錯誤");
+    alert(`初始化失敗：${msg}`);
+  }
+}
+
+
+
 function toggleNote(dayId, idx) {
   const dayObj = plan.value.find((d) => d.id === dayId);
   if (dayObj) dayObj.events[idx].showNote = !dayObj.events[idx].showNote;
@@ -2388,10 +2474,14 @@ async function saveEventEdit() {
       dayObj.events[idx] = { ...newEvBase, note: oldNote, showNote: false };
     }
 
+    // ✅ 每次儲存後依時間重排
+    sortDayEvents(dayObj);
+
     const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
 
     await updateDoc(dayRef, { events: eventsToSave });
+
 
     closeEventEditor();
     alert("儲存成功！");
@@ -2488,6 +2578,14 @@ function getDayCity(day) {
   return guess || "Osaka";
 }
 
+function cityLabel(cityKey) {
+  const k = String(cityKey || "").trim();
+  if (k === "Osaka") return "大阪";
+  if (k === "Kyoto") return "京都";
+  return k; // 其他城市維持原樣
+}
+
+
 function guessCityFromText(text) {
   const t = String(text || "").toLowerCase();
   if (t.includes("busan") || t.includes("釜山")) return "Busan";
@@ -2536,10 +2634,65 @@ const weatherState = ref({
 
 
 watch(currentPage, async (p) => {
+  if (p === "itinerary") await resortItineraryByTime(); // ✅ 切回行程頁就依時間重排
   if (p === "accounting") await reloadExpenses();
   if (p === "prep") await loadPrepAll();
   if (p === "tools") await refreshFxTool();
 });
+
+function timeToMinutes(t) {
+  const s = String(t || "").trim();
+  if (!s) return Number.POSITIVE_INFINITY;
+
+  // 支援 "HH:MM" / "H:MM" / "HH：MM"
+  let m = s.match(/^(\d{1,2})\s*[:：]\s*(\d{1,2})$/);
+  if (m) return Number(m[1]) * 60 + Number(m[2]);
+
+  // 支援 "HH時MM分"
+  m = s.match(/^(\d{1,2})\s*時\s*(\d{1,2})\s*分$/);
+  if (m) return Number(m[1]) * 60 + Number(m[2]);
+
+  return Number.POSITIVE_INFINITY;
+}
+
+function sortDayEvents(dayObj) {
+  if (!dayObj?.events?.length) return;
+
+  // 穩定排序：同時間維持原順序
+  const decorated = dayObj.events.map((ev, i) => ({ ev, i, tm: timeToMinutes(ev?.time) }));
+  decorated.sort((a, b) => (a.tm - b.tm) || (a.i - b.i));
+  dayObj.events = decorated.map((x) => x.ev);
+}
+
+async function resortItineraryByTime() {
+  // ✅ 先做本地排序（畫面立即正確）
+  for (const d of plan.value) sortDayEvents(d);
+
+  // ✅ 若可寫入，僅把「當天(activeDay)」的排序結果回寫，避免每次切頁大量寫入
+  if (!canWrite.value) return;
+
+  const dayObj = plan.value.find((d) => d.id === activeDayId.value);
+  if (!dayObj) return;
+
+  // 若排序前後沒有變化，就不寫入
+  const signature = (arr) =>
+    JSON.stringify(arr.map(({ showNote, ...rest }) => rest));
+
+  const beforeSig = signature(dayObj.events);
+  sortDayEvents(dayObj);
+  const afterSig = signature(dayObj.events);
+  if (beforeSig === afterSig) return;
+
+  try {
+    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayObj.id);
+    const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
+    await updateDoc(dayRef, { events: eventsToSave });
+  } catch (e) {
+    console.error("依時間排序回寫失敗：", e);
+  }
+}
+
+
 
 async function refreshWeatherForActiveDay() {
   const dayObj = plan.value.find((d) => d.id === activeDayId.value);
