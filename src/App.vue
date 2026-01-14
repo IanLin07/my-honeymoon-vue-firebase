@@ -14,8 +14,8 @@
               class="auth-avatar"
               :src="userAvatar"
               :alt="userLabel"
-              referrerpolicy="no-referrer"
             />
+
 
             <div class="auth-text">
               <div class="auth-name">{{ userLabel }}</div>
@@ -134,7 +134,7 @@
             <h2 class="day-title">📅 第 {{ day.day }} 天（{{ day.date }}）</h2>
 
             <div class="day-head-actions" v-if="canWrite">
-              <button class="btn btn-primary btn-mini" @click="openEventEditor(day.id, null)">＋ 新增</button>
+              <button class="btn btn-primary btn-mini" @click="openEventEditor(day.id, null)">新增</button>
 
             </div>
 
@@ -379,20 +379,35 @@
             v-for="b in filteredBookings"
             :key="b.id"
             class="booking-card booking-card2"
-            @click="onBookingCardClick(b)"
+            
           >
             <!-- 上方淡藍區塊（像圖2） -->
             <div class="bk2-topbar">
               <div class="bk2-airline">{{ b.vendor || bookingTypeLabel(b.type) }}</div>
-              <button
-                v-if="canWrite"
-                class="bk2-mini-btn"
-                type="button"
-                @click.stop="openBookingEditor(b)"
-              >
-                同一張訂單
-              </button>
+
+              <div class="bk2-top-actions">
+                <!-- ✅ 有憑證才顯示：任何人可點開 -->
+                <button
+                  v-if="b.voucherUrl"
+                  class="bk2-mini-btn"
+                  type="button"
+                  @click.stop="openBookingVoucher(b)"
+                  title="開啟憑證（PDF/照片）"
+                >
+                  憑證
+                </button>
+
+                <button
+                  v-if="canWrite"
+                  class="bk2-mini-btn"
+                  type="button"
+                  @click.stop="openBookingEditor(b)"
+                >
+                  憑證
+                </button>
+              </div>
             </div>
+
 
             <!-- 大訂位代碼 -->
             <div class="bk2-code">
@@ -451,18 +466,18 @@
               <div class="bk2-box">
                 <div class="bk2-box-label">PURCHASED</div>
                 <div class="bk2-box-value">{{ b.purchasedAt || "—" }}</div>
-                <div class="bk2-box-sub">via 官網</div>
+                
               </div>
             </div>
 
-            <!-- 底部按鈕（像圖2的「編輯航班資訊」） -->
+            <!-- 底部按鈕（像圖2的「編輯資訊」） -->
             <button
               v-if="canWrite"
               class="bk2-edit-btn"
               type="button"
               @click.stop="openBookingEditor(b)"
             >
-              ✏️ 編輯航班資訊
+              ✏️ 編輯資訊
             </button>
           </div>
 
@@ -556,6 +571,63 @@
                 <input class="field-input" v-model="bookingEditor.form.purchasedAt" :disabled="!canWrite" placeholder="例如：2025/11/14" />
               </label>
             </div>
+
+
+            <!-- ✅ 憑證上傳（PDF/照片；照片自動壓縮） -->
+            <div class="voucher-uploader" style="margin-top:12px;">
+              <div class="field-label" style="font-weight:900;">憑證（PDF/照片）</div>
+
+              <div class="voucher-row">
+                <input
+                  class="field-input"
+                  type="file"
+                  accept="application/pdf,image/*"
+                  @change="onBookingVoucherFileChange"
+                  :disabled="!canWrite || bookingVoucherUploading"
+                />
+                <div v-if="bookingVoucherFileName" class="readonly-hint" style="margin-top:6px;">
+                  已選擇：{{ bookingVoucherFileName }}
+                </div>
+
+                <button
+                  class="btn btn-secondary btn-mini"
+                  type="button"
+                  @click.stop.prevent="uploadBookingVoucher"
+                  :disabled="!canWrite || bookingVoucherUploading || !bookingVoucherFile"
+                >
+                  {{ bookingVoucherUploading ? `上傳中... ${bookingVoucherProgress}%` : "上傳" }}
+
+                </button>
+                
+                <button
+                  v-if="bookingVoucherUploading"
+                  class="btn btn-ghost btn-mini"
+                  type="button"
+                  @click.stop.prevent="cancelBookingVoucherUpload"
+                >
+                  取消
+                </button>
+
+                <button
+                  v-if="bookingEditor.form.voucherUrl"
+                  class="btn btn-ghost btn-mini"
+                  type="button"
+                  @click.stop="openBookingVoucher({ voucherUrl: bookingEditor.form.voucherUrl })"
+                >
+                  開啟
+                </button>
+              </div>
+
+              <div v-if="!bookingEditor.originId" class="readonly-hint" style="margin-top:8px;">
+                尚未建立此筆預定：可直接選檔並按「上傳」，系統會先自動儲存再上傳憑證。
+              </div>
+
+              <div v-if="bookingEditor.form.voucherName" class="readonly-hint" style="margin-top:6px;">
+                目前憑證：{{ bookingEditor.form.voucherName }}
+              </div>
+            </div>
+
+
 
             <div class="row-right">
               <button class="btn btn-secondary" @click="closeBookingEditor">關閉</button>
@@ -1354,11 +1426,21 @@ import {
 
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+
+
+
+
+
+
+
+
 /* ===================== 固定預設行程 ===================== */
 const DEFAULT_TRIP_ID = "HM-8F3K2A";
 
 /* ===================== Auth ===================== */
 const auth = getAuth();
+const storage = getStorage();
 // ✅ Debug：讓你可以在瀏覽器 Console 用 window.__auth 直接查看 currentUser
 window.__auth = auth;
 window.__getUid = () => auth.currentUser?.uid;
@@ -1508,15 +1590,17 @@ let unsubBookings = null;
 
 function bookingDateKey(d) {
   // d 預期是 "YYYY-MM-DD"；無日期的排到最後
-  const s = String(d || "").trim();
-  if (!s) return Number.POSITIVE_INFINITY;
+  if (!d) return Infinity;
 
-  // 只取 YYYY-MM-DD，避免有人存到帶時間的字串
-  const iso = s.slice(0, 10);
-  // ISO 格式可以直接字串比較，但這裡轉成數字 key 更穩
-  const key = Number(iso.replaceAll("-", ""));
-  return Number.isFinite(key) ? key : Number.POSITIVE_INFINITY;
+  // 強制轉字串並只取日期
+  const iso = String(d).slice(0, 10);
+
+  // 用正規表示法取代 replaceAll（避免 parser 相容性問題）
+  const key = parseInt(iso.replace(/-/g, ""), 10);
+
+  return Number.isFinite(key) ? key : Infinity;
 }
+
 
 function timeKey(t) {
   // "HH:MM" -> minutes；空值排後面
@@ -3140,6 +3224,11 @@ function openBookingEditor(b) {
       aircraft: "",
       priceTwd: null,
       purchasedAt: "",
+      voucherUrl: "",
+      voucherName: "",
+      voucherType: "",
+
+
     };
     return;
   }
@@ -3162,6 +3251,10 @@ function openBookingEditor(b) {
     aircraft: b.aircraft || "",
     priceTwd: typeof b.priceTwd === "number" ? b.priceTwd : null,
     purchasedAt: b.purchasedAt || "",
+    voucherUrl: b.voucherUrl || "",
+    voucherName: b.voucherName || "",
+    voucherType: b.voucherType || "",
+
   };
 }
 
@@ -3171,7 +3264,8 @@ function closeBookingEditor() {
   bookingEditor.value.originId = "";
 }
 
-async function saveBookingEdit() {
+async function saveBookingEdit(options = { keepOpen: false }) {
+
   if (!canWrite.value) return alert("只讀模式無法儲存。請先登入並被加入 members。");
 
   const f = bookingEditor.value.form;
@@ -3200,17 +3294,23 @@ async function saveBookingEdit() {
 
   try {
     if (!bookingEditor.value.isEdit) {
-      await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, "bookings"), {
+      const docRef = await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, "bookings"), {
         ...payload,
         createdAt: serverTimestamp(),
       });
+
+      // ✅ 新增成功後，立刻寫回 bookingId（之後上傳憑證才找得到路徑）
+      bookingEditor.value.originId = docRef.id;
+      bookingEditor.value.isEdit = true;
     } else {
       const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingEditor.value.originId);
       await updateDoc(refDoc, payload);
     }
 
-    closeBookingEditor();
+
+    if (!options.keepOpen) closeBookingEditor();
     alert("儲存成功！");
+
   } catch (e) {
     console.error("儲存 booking 失敗：", e);
     alert("儲存失敗（可能是 rules 不允許 / 網路問題）");
@@ -3225,20 +3325,204 @@ async function deleteBooking() {
   try {
     const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingEditor.value.originId);
     await deleteDoc(refDoc);
+
     closeBookingEditor();
     alert("刪除成功！");
   } catch (e) {
     console.error("刪除 booking 失敗：", e);
     alert("刪除失敗（多半是 rules 目前不允許 delete）");
   }
+
+}
+
+/* ===================== Booking Voucher upload (Storage) ===================== */
+const bookingVoucherFile = ref(null);            // ✅ 目前選到的檔案（PDF/圖片）
+const bookingVoucherFileName = ref("");            // File
+const bookingVoucherUploading = ref(false);      // boolean
+const bookingVoucherProgress = ref(0);           // 0~100
+let bookingVoucherTask = null;                   // uploadBytesResumable task（可取消）
+
+
+function openBookingVoucher(b) {
+  const url = String(b?.voucherUrl || "").trim();
+  if (!url) return;
+
+  // 用新分頁打開（PDF/圖片都可）
+  window.open(url, "_blank");
+}
+
+function onBookingVoucherFileChange(ev) {
+  const input = ev?.target;
+  const f = input?.files?.[0] || null;
+
+  bookingVoucherFile.value = f;
+  bookingVoucherFileName.value = f ? (f.name || "已選擇檔案") : "";
+
+  // ✅ 仍保留：修 iOS/部分瀏覽器同檔重選不觸發 change
+  if (input) input.value = "";
 }
 
 
-const expenseEditor = ref({
-  open: false,
-  origin: null,
-  form: { id: "", date: "", amount: 0, currency: "JPY", category: "other", note: "" },
-});
+
+
+// 照片壓縮：縮到 maxW=1600，JPEG quality=0.8（通常體積可降 60~90%）
+async function compressImageToJpeg(file, maxW = 1600, quality = 0.8) {
+  const img = await fileToImage(file);
+
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+
+  const scale = w > maxW ? (maxW / w) : 1;
+  const tw = Math.round(w * scale);
+  const th = Math.round(h * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = tw;
+  canvas.height = th;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, tw, th);
+
+  const blob = await new Promise((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", quality)
+  );
+
+  if (!blob) throw new Error("圖片壓縮失敗");
+  return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+}
+
+function fileToImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url);
+      reject(e);
+    };
+    img.src = url;
+  });
+}
+
+function withTimeout(promise, ms, label = "操作") {
+  let t;
+  const timeout = new Promise((_, reject) => {
+    t = setTimeout(() => reject(new Error(`${label}逾時（>${ms / 1000}s），請檢查網路或重新上傳）`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
+}
+
+function cancelBookingVoucherUpload() {
+  try {
+    if (bookingVoucherTask) bookingVoucherTask.cancel();
+  } catch (_) {}
+}
+
+async function uploadBookingVoucher() {
+  if (!canWrite.value) return alert("只讀模式無法上傳：請先登入並被加入 members。");
+  if (!bookingVoucherFile.value) return alert("請先選擇 PDF 或照片檔案。");
+  if (bookingVoucherUploading.value) return;
+
+  try {
+    // ✅ 先確保 bookingId 存在（沒有就先儲存一筆預定，並保持 modal 不關）
+    if (!bookingEditor.value.originId) {
+      if (typeof saveBookingEdit !== "function") {
+        throw new Error("找不到 saveBookingEdit()：請確認 saveBookingEdit 已在同一個 <script setup> 內宣告");
+      }
+      await withTimeout(saveBookingEdit({ keepOpen: true }), 20000, "建立預定");
+      if (!bookingEditor.value.originId) {
+        throw new Error("儲存成功後仍未取得 bookingId（originId）");
+      }
+    }
+
+    // ✅ 開始上傳 → 才切 UI 狀態
+    bookingVoucherUploading.value = true;
+    bookingVoucherProgress.value = 0;
+
+    const raw = bookingVoucherFile.value;
+
+    // ✅ PDF 原檔上傳；圖片先壓縮成 jpg
+    const isPdf = raw.type === "application/pdf" || /\.pdf$/i.test(raw.name);
+    const upFile = isPdf
+      ? raw
+      : await withTimeout(compressImageToJpeg(raw, 1600, 0.8), 20000, "圖片壓縮");
+
+    const tripId = DEFAULT_TRIP_ID;
+    const bookingId = bookingEditor.value.originId;
+
+    const safeName = `${Date.now()}_${(upFile.name || "voucher").replace(/[^\w.\-]+/g, "_")}`;
+    const path = `trips/${tripId}/bookings/${bookingId}/${safeName}`;
+
+    // ✅ Resumable 上傳（可進度、可取消）
+    const r = sRef(storage, path);
+    bookingVoucherTask = uploadBytesResumable(r, upFile, {
+      contentType: upFile.type || "application/octet-stream",
+    });
+
+    // ✅ 等上傳完成（含進度更新 + 逾時保護）
+    await withTimeout(
+      new Promise((resolve, reject) => {
+        bookingVoucherTask.on(
+          "state_changed",
+          (snap) => {
+            if (snap.totalBytes > 0) {
+              bookingVoucherProgress.value = Math.max(
+                1,
+                Math.round((snap.bytesTransferred / snap.totalBytes) * 100)
+              );
+            } else {
+              bookingVoucherProgress.value = Math.max(1, bookingVoucherProgress.value || 1);
+            }
+          },
+          (err) => reject(err),
+          () => resolve()
+        );
+      }),
+      120000,
+      "上傳憑證"
+    );
+
+    // ✅ 取得下載 URL
+    const url = await getDownloadURL(bookingVoucherTask.snapshot.ref);
+
+    // ✅ 寫回 Firestore（讓列表與 modal 都能顯示「憑證」按鈕）
+    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingEditor.value.originId);
+
+    const voucherName = upFile.name || safeName;
+    const voucherType = isPdf ? "pdf" : "image";
+
+    await updateDoc(refDoc, {
+      voucherUrl: url,
+      voucherName,
+      voucherType,
+      updatedAt: serverTimestamp(),
+    });
+
+    // ✅ 同步 modal 表單顯示
+    bookingEditor.value.form.voucherUrl = url;
+    bookingEditor.value.form.voucherName = voucherName;
+    bookingEditor.value.form.voucherType = voucherType;
+
+    alert("上傳成功！");
+  } catch (e) {
+    if (String(e?.code || "").includes("storage/canceled")) {
+      alert("已取消上傳。");
+    } else {
+      console.error("上傳憑證失敗：", e);
+      alert(`上傳失敗：${e?.message || e}`);
+    }
+  } finally {
+    bookingVoucherUploading.value = false;
+    bookingVoucherProgress.value = 0;
+    bookingVoucherTask = null;
+
+    bookingVoucherFile.value = null;
+    bookingVoucherFileName.value = "";
+  }
+}
+
 
 function canEditExpense(e) {
   if (!user.value || !e) return false;
@@ -3516,6 +3800,10 @@ function subscribeBookings() {
           aircraft: data.aircraft || "",
           priceTwd: typeof data.priceTwd === "number" ? data.priceTwd : null,
           purchasedAt: data.purchasedAt || "",
+          voucherUrl: data.voucherUrl || "",
+          voucherName: data.voucherName || "",
+          voucherType: data.voucherType || "",
+
           uid: data.uid || "",
           displayName: data.displayName || "",
           createdAt: data.createdAt || null,
