@@ -1317,86 +1317,68 @@
 
     </main>
 
-    <nav class="bottom-nav bottom-nav-6">
-      <button
-        type="button"
-        class="nav-item"
-        :class="{ active: currentPage === 'itinerary' }"
+<nav class="bottom-nav bottom-nav-6">
+  <button
+    type="button"
+    class="nav-item"
+    :class="{ active: currentPage === 'itinerary' }"
+    @click.stop="goPage('itinerary')"
+  >
+    <div class="nav-icon">🗓️</div>
+    <div class="nav-label">行程</div>
+  </button>
 
-        @pointerup.prevent="goPage('itinerary')"
-        @touchend.prevent="goPage('itinerary')"
-        @click.prevent="goPage('itinerary')"
-      >
-        <div class="nav-icon">🗓️</div>
-        <div class="nav-label">行程</div>
-      </button>
+  <button
+    type="button"
+    class="nav-item"
+    :class="{ active: currentPage === 'booking' }"
+    @click.stop="goPage('booking')"
+  >
+    <div class="nav-icon">🗂️</div>
+    <div class="nav-label">預定</div>
+  </button>
 
-      <button
-        type="button"
-        class="nav-item"
-        :class="{ active: currentPage === 'booking' }"
-        @pointerup.prevent="goPage('booking')"
-        @touchend.prevent="goPage('booking')"
-        @click.prevent="goPage('booking')"
-      >
-        <div class="nav-icon">🗂️</div>
-        <div class="nav-label">預定</div>
-      </button>
+  <button
+    type="button"
+    class="nav-item"
+    :class="{ active: currentPage === 'accounting' }"
+    @click.stop="goPage('accounting')"
+  >
+    <div class="nav-icon">🧾</div>
+    <div class="nav-label">記帳</div>
+  </button>
 
+  <button
+    type="button"
+    class="nav-item"
+    :class="{ active: currentPage === 'prep' }"
+    @click.stop="goPage('prep')"
+  >
+    <div class="nav-icon">🎒</div>
+    <div class="nav-label">準備</div>
+  </button>
 
+  <button
+    type="button"
+    class="nav-item"
+    :class="{ active: currentPage === 'tools' }"
+    @click.stop="goPage('tools')"
+  >
+    <div class="nav-icon">🧰</div>
+    <div class="nav-label">工具</div>
+  </button>
 
-      <button
-        type="button"
-        class="nav-item"
-        :class="{ active: currentPage === 'accounting' }"
+  <button
+    type="button"
+    class="nav-item"
+    :class="{ active: currentPage === 'backup' }"
+    @click.stop="goPage('backup')"
+  >
+    <div class="nav-icon">🧷</div>
+    <div class="nav-label">備用</div>
+  </button>
+</nav>
 
-        @pointerup.prevent="goPage('accounting')"
-        @touchend.prevent="goPage('accounting')"
-        @click.prevent="goPage('accounting')"
-      >
-        <div class="nav-icon">🧾</div>
-        <div class="nav-label">記帳</div>
-      </button>
-
-      <button
-        type="button"
-        class="nav-item"
-        :class="{ active: currentPage === 'prep' }"
-
-        @pointerup.prevent="goPage('prep')"
-        @touchend.prevent="goPage('prep')"
-        @click.prevent="goPage('prep')"
-      >
-        <div class="nav-icon">🎒</div>
-        <div class="nav-label">準備</div>
-      </button>
-
-      <button
-        type="button"
-        class="nav-item"
-        :class="{ active: currentPage === 'tools' }"
-
-        @pointerup.prevent="goPage('tools')"
-        @touchend.prevent="goPage('tools')"
-        @click.prevent="goPage('tools')"
-      >
-        <div class="nav-icon">🧰</div>
-        <div class="nav-label">工具</div>
-      </button>
-
-      <button
-        type="button"
-        class="nav-item"
-        :class="{ active: currentPage === 'backup' }"
-
-        @pointerup.prevent="goPage('backup')"
-        @touchend.prevent="goPage('backup')"
-        @click.prevent="goPage('backup')"
-      >
-        <div class="nav-icon">🧷</div>
-        <div class="nav-label">備用</div>
-      </button>
-    </nav>
 
 
   </div>
@@ -1406,7 +1388,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+
 import { db } from "./firebase";
 
 import {
@@ -1862,41 +1845,50 @@ function scrollToTopNow() {
 }
 
 
+const VALID_PAGES = new Set(["itinerary", "booking", "accounting", "prep", "tools", "backup"]);
+
+
+
 function goPage(page) {
-  // 避免重複點擊同頁還一直觸發
-  if (currentPage.value === page) {
-    // 仍做一次 pulse，讓使用者知道有點到
-    navPulse.value = page;
+  // 1) 防呆：避免 page 變成 event 或未知字串（未知就會進入 v-if/else-if 鏈外 => 白畫面）
+  const next = VALID_PAGES.has(page) ? page : "itinerary";
+
+  // 2) 重複點同頁：給點回饋就好，不切
+  if (currentPage.value === next) {
+    navPulse.value = next;
     window.setTimeout(() => {
-      if (navPulse.value === page) navPulse.value = "";
+      if (navPulse.value === next) navPulse.value = "";
     }, 260);
     return;
   }
 
-  currentPage.value = page;
-// ✅ 切換到「預定」頁面時自動置頂
-if (page === "booking") {
-  // 用兩段 rAF 保證 DOM 切頁後滾動一定生效（手機 WebView 更穩）
-  requestAnimationFrame(() => requestAnimationFrame(scrollToTopNow));
-}
+  currentPage.value = next;
 
+  // 3) 切頁後：等 DOM 更新完成再置頂（不新增新函式，直接呼叫你原本已存在的 scrollToTopNow）
+  nextTick(() => {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      try { scrollToTopNow(); } catch (_) { window.scrollTo({ top: 0, left: 0, behavior: "auto" }); }
+    }));
+  });
 
-  // 點擊動畫（你 CSS 已有 .nav-item.pulse 的 keyframes）
-  navPulse.value = page;
+  // 4) 點擊動畫
+  navPulse.value = next;
   window.setTimeout(() => {
-    if (navPulse.value === page) navPulse.value = "";
+    if (navPulse.value === next) navPulse.value = "";
   }, 260);
 
-  // ✅ 依頁面做必要的狀態矯正（避免只讀時停在記帳 entry）
-  if (page === "accounting") {
-    if (!canWrite.value) {
-      accountingTab.value = "detail";
-    } else {
-      // 你需求是「進記帳頁預設在記帳」，這裡保險再補一次
-      accountingTab.value = "entry";
+  // 5) 記帳頁切入時的 tab 防呆
+  if (next === "accounting") {
+    try {
+      accountingTab.value = canWrite.value ? "entry" : "detail";
+    } catch (e) {
+      console.warn("[goPage] accountingTab set failed:", e);
     }
   }
 }
+
+
+
 
 /* ===================== Bottom Nav：保險切頁（mobile click 容錯） ===================== */
 
@@ -2873,6 +2865,9 @@ const expensesError = ref("");
 
 const accountingTab = ref("entry"); // ✅ 預設進記帳頁就是「記帳」
 
+
+
+
 function goAccountingEntry() {
   if (!canWrite.value) {
     accountingTab.value = "detail";
@@ -2963,6 +2958,20 @@ const expenseForm = ref({
   currency: "JPY",
   category: "food",
   note: "",
+});
+
+// ✅ 記帳編輯器（修正 template 使用 expenseEditor.open 但未宣告造成的白畫面）
+const expenseEditor = ref({
+  open: false,
+  origin: null,
+  form: {
+    id: "",
+    date: "",
+    amount: 0,
+    currency: "JPY",
+    category: "other",
+    note: "",
+  },
 });
 
 
