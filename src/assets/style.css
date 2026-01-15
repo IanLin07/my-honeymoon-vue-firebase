@@ -714,6 +714,17 @@ body{
 /* =============== Prep segmented 3 =============== */
 .segmented-3{ grid-template-columns:repeat(3, 1fr); }
 .segmented-4{ grid-template-columns:repeat(4, 1fr); }
+/* ✅ Prep：待辦/行李/購物 置頂（滑動時黏住） */
+.prep-sticky{
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  background: #f7f4ee; /* 你的頁面底色，避免滑動時透出 */
+  padding: 8px 0 10px;
+  margin: 0 0 8px;
+  box-shadow: 0 10px 18px rgba(0,0,0,.06);
+}
+
 
 /* =============== Tools: FX converter =============== */
 .fx-row{
@@ -813,6 +824,89 @@ body{
   border:2px solid rgba(0,0,0,.04);
   cursor:pointer;
 }
+
+/* ===================== Backup（備用頁卡片：如範例圖） ===================== */
+.backup-card{
+  background: rgba(255,255,255,.92);
+  border-radius: 28px;
+  padding: 14px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.08);
+  border: 2px solid rgba(0,0,0,.04);
+  cursor: pointer;
+}
+
+.backup-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.backup-title{
+  flex: 1;
+  min-width: 0;
+  font-weight: 1000;
+  font-size: 20px;
+  letter-spacing: .2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.backup-pills{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.backup-pill{
+  background: #dbe9f6;
+  border: 2px solid rgba(0,0,0,.06);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 900;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(0,0,0,.06);
+}
+
+.backup-pill.static{
+  cursor: default;
+}
+
+.backup-pill:active{
+  transform: translateY(1px);
+}
+
+.backup-field{
+  margin-top: 10px;
+  background: #fff;
+  border-radius: 18px;
+  padding: 12px 14px;
+  border: 2px solid rgba(0,0,0,.08);
+}
+
+.bf-line1{
+  font-weight: 900;
+}
+
+.bf-line2{
+  margin-top: 6px;
+  opacity: .70;
+  font-weight: 800;
+}
+
+.muted{
+  opacity: .65;
+}
+
+/* 手機更緊湊 */
+@media (max-width: 420px){
+  .backup-title{ font-size: 18px; }
+  .backup-pill{ padding: 9px 14px; font-size: 15px; }
+}
+
 
 .booking-top{
   display:flex;
@@ -1237,8 +1331,28 @@ body{
   gap:8px;
   align-items:center;
 }
+
 .voucher-row{
   display:flex;
   gap:10px;
   align-items:center;
+  flex-wrap:wrap; /* 小螢幕時可換行 */
 }
+
+/* 讓 file input 在 flex 裡不要硬吃 100% */
+.voucher-file-input{
+  flex: 1 1 240px;
+  width: auto;
+}
+
+/* 檔名/狀態顯示（未選擇/已選擇合一） */
+.voucher-file-pill{
+  font-weight:900;
+  font-size:12px;
+  opacity:.75;
+  background: rgba(79,182,255,.12);
+  border: 2px solid rgba(79,182,255,.18);
+  border-radius: 999px;
+  padding: 8px 12px;
+}
+

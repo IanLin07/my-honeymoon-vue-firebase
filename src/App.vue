@@ -579,15 +579,17 @@
 
               <div class="voucher-row">
                 <input
-                  class="field-input"
+                  class="field-input voucher-file-input"
                   type="file"
                   accept="application/pdf,image/*"
                   @change="onBookingVoucherFileChange"
                   :disabled="!canWrite || bookingVoucherUploading"
                 />
-                <div v-if="bookingVoucherFileName" class="readonly-hint" style="margin-top:6px;">
-                  已選擇：{{ bookingVoucherFileName }}
+
+                <div class="voucher-file-pill">
+                  {{ bookingVoucherFileName ? ('已選擇：' + bookingVoucherFileName) : '' }}
                 </div>
+
 
                 <button
                   class="btn btn-secondary btn-mini"
@@ -1018,11 +1020,14 @@
       <section v-else-if="currentPage === 'prep'" class="page">
 
 
-  <div class="segmented segmented-3">
-    <button class="seg-btn" :class="{ active: prepTab === 'todo' }" @click="prepTab='todo'">✅ 待辦</button>
-    <button class="seg-btn" :class="{ active: prepTab === 'luggage' }" @click="prepTab='luggage'">🧳 行李</button>
-    <button class="seg-btn" :class="{ active: prepTab === 'shopping' }" @click="prepTab='shopping'">🛍️ 購物</button>
+  <div class="prep-sticky">
+    <div class="segmented segmented-3">
+      <button class="seg-btn" :class="{ active: prepTab === 'todo' }" @click="prepTab='todo'">✅ 待辦</button>
+      <button class="seg-btn" :class="{ active: prepTab === 'luggage' }" @click="prepTab='luggage'">🧳 行李</button>
+      <button class="seg-btn" :class="{ active: prepTab === 'shopping' }" @click="prepTab='shopping'">🛍️ 購物</button>
+    </div>
   </div>
+
 
   <!-- 共用清單 -->
   <div class="card">
@@ -1159,39 +1164,47 @@
           </div>
 
           <div v-else class="list">
-            <div v-for="it in backup.food.items" :key="it.id" class="booking-card" style="cursor:pointer;" @click="openBackupEditor('food', it)">
-              <div class="booking-main">
-                <div class="booking-top">
-                  <div class="booking-code">{{ (it.branch || '').trim() ? it.branch : '（未填分店）' }}</div>
-                  <div class="booking-vendor">{{ it.title || '（未命名）' }}</div>
-                </div>
+            <div
+              v-for="it in backup.food.items"
+              :key="it.id"
+              class="backup-card"
+              @click="openBackupEditor('food', it)"
+            >
+              <div class="backup-head">
+                <div class="backup-title">{{ it.title || '（未命名）' }}</div>
 
-                <div class="booking-simple">
-                  <div class="booking-simple-title">
-                    想吃：{{ it.mustEat || '—' }}
-                  </div>
-                  <div class="booking-simple-sub">
-                    排隊：{{ (it.queueMins || it.queueMins === 0) ? `${it.queueMins} 分` : '—' }}
-                  </div>
-                </div>
+                <div class="backup-pills">
+                  <span class="backup-pill static">
+                    {{ (it.branch || '').trim() ? it.branch : '（未填分店）' }}
+                  </span>
 
-                <div class="booking-bottom">
-                  <div class="booking-mini">
-                    <div class="mini-label">備註</div>
-                    <div class="mini-value">{{ it.note || '—' }}</div>
-                  </div>
+                  <button class="backup-pill" type="button" @click.stop="openBackupEditor('food', it)">
+                    照片
+                  </button>
 
-                  <div class="booking-mini">
-                    <div class="mini-label">導航</div>
-                    <div class="mini-value">
-                      <button class="btn btn-secondary btn-mini" type="button" @click.stop="openNavigation(it.mapQuery || it.title)">
-                        Google Maps
-                      </button>
-                    </div>
-                  </div>
+                  <button
+                    class="backup-pill"
+                    type="button"
+                    @click.stop="openNavigation(it.mapQuery || it.title)"
+                  >
+                    導航
+                  </button>
                 </div>
               </div>
+
+              <div class="backup-field">
+                <div class="bf-line1">想吃：{{ it.mustEat || '—' }}</div>
+                <div class="bf-line2">
+                  排隊：{{ (it.queueMins || it.queueMins === 0) ? `${it.queueMins}分` : '—' }}
+                </div>
+              </div>
+
+              <div class="backup-field">
+                <div class="bf-line1 muted">備註</div>
+                <div class="bf-line2">{{ it.note || '—' }}</div>
+              </div>
             </div>
+
           </div>
         </div>
 
@@ -1213,30 +1226,45 @@
           </div>
 
           <div v-else class="list">
-            <div v-for="it in backup.places.items" :key="it.id" class="booking-card" style="cursor:pointer;" @click="openBackupEditor('places', it)">
-              <div class="booking-main">
-                <div class="booking-top">
-                  <div class="booking-code">{{ it.hours || '（未填營業時間）' }}</div>
-                  <div class="booking-vendor">{{ it.title || '（未命名）' }}</div>
-                </div>
+            <div
+              v-for="it in backup.places.items"
+              :key="it.id"
+              class="backup-card"
+              @click="openBackupEditor('places', it)"
+            >
+              <div class="backup-head">
+                <div class="backup-title">{{ it.title || '（未命名）' }}</div>
 
-                <div class="booking-simple">
-                  <div class="booking-simple-title">地址：{{ it.address || '—' }}</div>
-                  <div class="booking-simple-sub">備註：{{ it.note || '—' }}</div>
-                </div>
+                <div class="backup-pills">
+                  <span class="backup-pill static">
+                    {{ (it.hours || '').trim() ? it.hours : '（未填時間）' }}
+                  </span>
 
-                <div class="booking-bottom">
-                  <div class="booking-mini">
-                    <div class="mini-label">導航</div>
-                    <div class="mini-value">
-                      <button class="btn btn-secondary btn-mini" type="button" @click.stop="openNavigation(it.mapQuery || it.address || it.title)">
-                        Google Maps
-                      </button>
-                    </div>
-                  </div>
+                  <button class="backup-pill" type="button" @click.stop="openBackupEditor('places', it)">
+                    照片
+                  </button>
+
+                  <button
+                    class="backup-pill"
+                    type="button"
+                    @click.stop="openNavigation(it.mapQuery || it.address || it.title)"
+                  >
+                    導航
+                  </button>
                 </div>
               </div>
+
+              <div class="backup-field">
+                <div class="bf-line1">地址：{{ it.address || '—' }}</div>
+                <div class="bf-line2 muted">（可點右上角「導航」直接開 Google Maps）</div>
+              </div>
+
+              <div class="backup-field">
+                <div class="bf-line1 muted">備註</div>
+                <div class="bf-line2">{{ it.note || '—' }}</div>
+              </div>
             </div>
+
           </div>
         </div>
 
@@ -2769,10 +2797,9 @@ async function resortItineraryByTime() {
 }
 
 
-
 async function refreshWeatherForActiveDay() {
   const dayObj = plan.value.find((d) => d.id === activeDayId.value);
-  if (!dayObj) return;
+  if (!dayObj) return false;
 
   const cityKey = dayObj.city || getDayCity(dayObj);
   const city = CITY_COORDS[cityKey] || CITY_COORDS.Osaka;
@@ -2814,23 +2841,45 @@ async function refreshWeatherForActiveDay() {
     weatherState.value.wind = isFiniteNumber(wind) ? Math.round(wind) : "-";
     weatherState.value.sunrise = sunrise ? toHHMM(sunrise) : "--:--";
 
-    const { statusText, statusEmoji } = simpleWeatherLabel(weatherState.value.precipProb, weatherState.value.tMax);
+    const { statusText, statusEmoji } = simpleWeatherLabel(
+      weatherState.value.precipProb,
+      weatherState.value.tMax
+    );
     weatherState.value.statusText = statusText;
     weatherState.value.statusEmoji = statusEmoji;
+
+    return true;
   } catch (err) {
     weatherState.value.error = err?.message ? String(err.message) : "未知錯誤";
+    return false;
   } finally {
     weatherState.value.loading = false;
   }
 }
 
-async function manualRefreshWeatherAndFx() {
-  // ✅ 只更新「當前頁」最需要的資料，避免連動太多 UI
-  await refreshWeatherForActiveDay();
 
-  // 工具頁匯率：只更新工具頁顯示用的 rate（不會影響明細的日別匯率）
-  await refreshFxTool();
+
+async function manualRefreshWeatherAndFx() {
+  const weatherOk = await refreshWeatherForActiveDay();
+  const fxOk = await refreshFxTool();
+
+  const lines = [];
+
+  if (weatherOk) {
+    lines.push("✅ 天氣更新成功");
+  } else {
+    lines.push(`❌ 天氣更新失敗：${weatherState.value.error || "未知錯誤"}`);
+  }
+
+  if (fxOk) {
+    lines.push(`✅ 匯率更新成功（1 JPY = ${fxToolRate.value} TWD）`);
+  } else {
+    lines.push(`❌ 匯率更新失敗：已改用預設值 ${DEFAULT_FX_JPY_TO_TWD}`);
+  }
+
+  alert(lines.join("\n"));
 }
+
 
 
 function simpleWeatherLabel(precipProb, tMax) {
@@ -3199,7 +3248,11 @@ const bookingEditor = ref({
     baggage: "",
     aircraft: "",
     priceTwd: null,
-    purchasedAt: "",
+    voucherUrl: "",
+    voucherPath: "",
+    voucherName: "",
+    voucherType: "",
+
   },
 });
 
@@ -3263,6 +3316,7 @@ function openBookingEditor(b) {
     voucherUrl: b.voucherUrl || "",
     voucherName: b.voucherName || "",
     voucherType: b.voucherType || "",
+    voucherPath: b.voucherPath || "",
 
   };
 }
@@ -3345,19 +3399,27 @@ async function deleteBooking() {
 }
 
 /* ===================== Booking Voucher upload (Storage) ===================== */
-const bookingVoucherFile = ref(null);            // ✅ 目前選到的檔案（PDF/圖片）
-const bookingVoucherFileName = ref("");            // File
-const bookingVoucherUploading = ref(false);      // boolean
-const bookingVoucherProgress = ref(0);           // 0~100
-let bookingVoucherTask = null;                   // uploadBytesResumable task（可取消）
+const bookingVoucherFile = ref(null);          // 目前選到的檔案（PDF/圖片）
+const bookingVoucherFileName = ref("");        // 顯示用檔名
+const bookingVoucherUploading = ref(false);    // boolean
+const bookingVoucherProgress = ref(0);         // 0~100
+let bookingVoucherTask = null;                 // uploadBytesResumable task（可取消）
 
+// ✅ 開啟憑證：優先用 voucherUrl；沒有就用 voucherPath 即時換 URL
+async function openBookingVoucher(b) {
+  try {
+    const url = String(b?.voucherUrl || "").trim();
+    if (url) return window.open(url, "_blank");
 
-function openBookingVoucher(b) {
-  const url = String(b?.voucherUrl || "").trim();
-  if (!url) return;
+    const path = String(b?.voucherPath || "").trim();
+    if (!path) return alert("找不到憑證連結（voucherUrl/voucherPath 都是空的）");
 
-  // 用新分頁打開（PDF/圖片都可）
-  window.open(url, "_blank");
+    const freshUrl = await getDownloadURL(sRef(storage, path));
+    window.open(freshUrl, "_blank");
+  } catch (e) {
+    console.error("開啟憑證失敗：", e);
+    alert(`開啟失敗：${e?.message || e}`);
+  }
 }
 
 function onBookingVoucherFileChange(ev) {
@@ -3370,9 +3432,6 @@ function onBookingVoucherFileChange(ev) {
   // ✅ 仍保留：修 iOS/部分瀏覽器同檔重選不觸發 change
   if (input) input.value = "";
 }
-
-
-
 
 // 照片壓縮：縮到 maxW=1600，JPEG quality=0.8（通常體積可降 60~90%）
 async function compressImageToJpeg(file, maxW = 1600, quality = 0.8) {
@@ -3391,11 +3450,9 @@ async function compressImageToJpeg(file, maxW = 1600, quality = 0.8) {
   const ctx = canvas.getContext("2d");
   ctx.drawImage(img, 0, 0, tw, th);
 
-  const blob = await new Promise((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", quality)
-  );
-
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
   if (!blob) throw new Error("圖片壓縮失敗");
+
   return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
 }
 
@@ -3437,16 +3494,10 @@ async function uploadBookingVoucher() {
   try {
     // ✅ 先確保 bookingId 存在（沒有就先儲存一筆預定，並保持 modal 不關）
     if (!bookingEditor.value.originId) {
-      if (typeof saveBookingEdit !== "function") {
-        throw new Error("找不到 saveBookingEdit()：請確認 saveBookingEdit 已在同一個 <script setup> 內宣告");
-      }
       await withTimeout(saveBookingEdit({ keepOpen: true }), 20000, "建立預定");
-      if (!bookingEditor.value.originId) {
-        throw new Error("儲存成功後仍未取得 bookingId（originId）");
-      }
+      if (!bookingEditor.value.originId) throw new Error("儲存成功後仍未取得 bookingId（originId）");
     }
 
-    // ✅ 開始上傳 → 才切 UI 狀態
     bookingVoucherUploading.value = true;
     bookingVoucherProgress.value = 0;
 
@@ -3461,16 +3512,15 @@ async function uploadBookingVoucher() {
     const tripId = DEFAULT_TRIP_ID;
     const bookingId = bookingEditor.value.originId;
 
-    const safeName = `${Date.now()}_${(upFile.name || "voucher").replace(/[^\w.\-]+/g, "_")}`;
-    const path = `trips/${tripId}/bookings/${bookingId}/${safeName}`;
+    // ✅ 固定檔名（同類型重傳會覆蓋 update，不會一直堆垃圾檔）
+    const objName = isPdf ? "voucher.pdf" : "voucher.jpg";
+    const path = `trips/${tripId}/bookings/${bookingId}/${objName}`;
 
-    // ✅ Resumable 上傳（可進度、可取消）
     const r = sRef(storage, path);
     bookingVoucherTask = uploadBytesResumable(r, upFile, {
-      contentType: upFile.type || "application/octet-stream",
+      contentType: upFile.type || (isPdf ? "application/pdf" : "image/jpeg"),
     });
 
-    // ✅ 等上傳完成（含進度更新 + 逾時保護）
     await withTimeout(
       new Promise((resolve, reject) => {
         bookingVoucherTask.on(
@@ -3493,24 +3543,29 @@ async function uploadBookingVoucher() {
       "上傳憑證"
     );
 
-    // ✅ 取得下載 URL
+    bookingVoucherProgress.value = 100;
+
+    // ✅ 取得下載 URL（會帶 token）
     const url = await getDownloadURL(bookingVoucherTask.snapshot.ref);
 
-    // ✅ 寫回 Firestore（讓列表與 modal 都能顯示「憑證」按鈕）
-    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingEditor.value.originId);
-
-    const voucherName = upFile.name || safeName;
+    // ✅ 寫回 Firestore（列表/編輯視窗都能開啟）
+    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingId);
+    const voucherName = upFile.name || objName;
     const voucherType = isPdf ? "pdf" : "image";
 
     await updateDoc(refDoc, {
       voucherUrl: url,
+      voucherPath: path,
       voucherName,
       voucherType,
+      voucherSize: upFile.size || null,
+      voucherContentType: upFile.type || null,
       updatedAt: serverTimestamp(),
     });
 
-    // ✅ 同步 modal 表單顯示
+    // ✅ 同步 modal 表單顯示（讓「開啟」按鈕立即可用）
     bookingEditor.value.form.voucherUrl = url;
+    bookingEditor.value.form.voucherPath = path;
     bookingEditor.value.form.voucherName = voucherName;
     bookingEditor.value.form.voucherType = voucherType;
 
@@ -3531,6 +3586,7 @@ async function uploadBookingVoucher() {
     bookingVoucherFileName.value = "";
   }
 }
+
 
 
 function canEditExpense(e) {
@@ -4049,19 +4105,19 @@ async function refreshFxTool() {
       if (fxTool.value.lock === "jpy") onFxToolJpyInput();
       else onFxToolTwdInput();
 
-      return;
+      return true; // ✅ 成功
     }
+
+    // 走到這裡代表 API 回來但資料不合理
+    throw new Error("匯率資料無效");
   } catch (e) {
     console.warn("工具頁匯率抓取失敗，使用預設值 0.2（1 JPY = 0.2 TWD）：", e);
+    fxToolRate.value = DEFAULT_FX_JPY_TO_TWD; // ✅ 明確切回預設值
+    fxTool.value.updatedAt = nowTimeLabel();
+    return false; // ❌ 失敗（已回退預設）
   }
-
-  // ✅ 抓不到就用你指定預設
-  fxToolRate.value = DEFAULT_FX_JPY_TO_TWD;
-  fxTool.value.updatedAt = nowTimeLabel() + "（備援）";
-
-  if (fxTool.value.lock === "jpy") onFxToolJpyInput();
-  else onFxToolTwdInput();
 }
+
 
 
 
