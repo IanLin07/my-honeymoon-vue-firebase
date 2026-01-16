@@ -160,25 +160,7 @@
 
               <div class="event-row">
                 <!-- ✅ 拖曳握把：按住才可拖，不觸發長按編輯 -->
-                <button
-                  class="drag-handle"
-                  type="button"
-                  v-if="canWrite"
-                  @pointerdown.stop.prevent="armEventDrag(day.id, idx)"
-                  @pointerup.stop.prevent="disarmEventDrag"
-                  @pointercancel.stop.prevent="disarmEventDrag"
-                  @touchstart.stop.prevent="armEventDrag(day.id, idx)"
-                  @touchend.stop.prevent="disarmEventDrag"
-                  aria-label="長按拖曳行程排序"
-                  title="長按拖曳行程排序"
-                >
-                  <svg class="drag-icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      fill="currentColor"
-                      d="M10 4h4v2h-4V4zm0 7h4v2h-4v-2zm0 7h4v2h-4v-2z"
-                    />
-                  </svg>
-                </button>
+
 
                 <div class="event-time">{{ event.time }}</div>
 
@@ -363,7 +345,7 @@
           <div class="card-header-row">
             <div class="card-title">📌 預定資訊</div>
 
-            <button class="btn btn-secondary btn-mini" v-if="canWrite" @click="openBookingEditor(null)">
+            <button class="btn btn-primary btn-mini" v-if="canWrite" @click="openBookingEditor(null)">
               新增
             </button>
           </div>
@@ -1056,26 +1038,7 @@
         @dragend="onPrepDragEnd"
       >
         <!-- ✅ 只能長按握把才可拖曳 -->
-        <button
-          class="drag-handle"
-          type="button"
-          :disabled="!canWrite"
-          @pointerdown.stop.prevent="armPrepDrag(it.id)"
-          @pointerup.stop.prevent="disarmPrepDrag"
-          @pointercancel.stop.prevent="disarmPrepDrag"
-          @touchstart.stop.prevent="armPrepDrag(it.id)"
-          @touchend.stop.prevent="disarmPrepDrag"
-          aria-label="長按拖曳排序"
-          title="長按拖曳排序"
-        >
-          <!-- 握把圖示（和行程頁共用同一個） -->
-          <svg class="drag-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M10 4h4v2h-4V4zm0 7h4v2h-4v-2zm0 7h4v2h-4v-2z"
-            />
-          </svg>
-        </button>
+
 
         <div class="todo">
           <input type="checkbox" v-model="it.done" @change="togglePrepDone(prepTab, it)" />
@@ -1149,7 +1112,7 @@
         <!-- ===== 美食 ===== -->
         <div v-if="backupTab === 'food'" class="card">
           <div class="card-title">🍜 美食</div>
-          <div class="card-subtitle">店名 / 分店 / 想吃品項 / 排隊預估；可一鍵導到 Google Maps。</div>
+
 
           <div class="row-right" style="margin-top:10px;">
             <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('food', null)">新增</button>
@@ -1211,7 +1174,7 @@
         <!-- ===== 地點 ===== -->
         <div v-else class="card">
           <div class="card-title">📍 地點</div>
-          <div class="card-subtitle">景點/商店：地址 / 營業時間 / 距離備註；可一鍵導到 Google Maps。</div>
+
 
           <div class="row-right" style="margin-top:10px;">
             <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('places', null)">新增</button>
