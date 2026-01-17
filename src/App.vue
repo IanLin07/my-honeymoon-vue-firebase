@@ -375,14 +375,7 @@
                   憑證
                 </button>
 
-                <button
-                  v-if="canWrite"
-                  class="bk2-mini-btn"
-                  type="button"
-                  @click.stop="openBookingEditor(b)"
-                >
-                  憑證
-                </button>
+
               </div>
             </div>
 
@@ -556,13 +549,32 @@
               <div class="field-label" style="font-weight:900;">憑證（PDF/照片）</div>
 
               <div class="voucher-row">
+
+
+
+                <!-- ✅ 原生 input 隱藏：移除「未選擇任何檔案」 -->
                 <input
-                  class="field-input voucher-file-input"
+                  id="bookingVoucherFileInput"
+                  class="voucher-file-hidden"
                   type="file"
                   accept="application/pdf,image/*"
                   @change="onBookingVoucherFileChange"
                   :disabled="!canWrite || bookingVoucherUploading"
                 />
+
+                <!-- ✅ 自訂選檔按鈕 -->
+                <label
+                  class="btn btn-secondary btn-mini"
+                  :class="{ 'is-disabled': (!canWrite || bookingVoucherUploading) }"
+                  :for="(!canWrite || bookingVoucherUploading) ? null : 'bookingVoucherFileInput'"
+                >
+                  選擇檔案
+                </label>
+
+
+
+
+
 
                 <div class="voucher-file-pill">
                   {{ bookingVoucherFileName ? ('已選擇：' + bookingVoucherFileName) : '' }}
@@ -1109,7 +1121,7 @@
 
         <!-- ===== 美食 ===== -->
         <div v-if="backupTab === 'food'" class="card">
-          <div class="card-title">🍜 美食</div>
+
 
 
           <div class="row-right" style="margin-top:10px;">
@@ -1171,7 +1183,7 @@
 
         <!-- ===== 地點 ===== -->
         <div v-else class="card">
-          <div class="card-title">🗺️ 地點</div>
+
 
 
           <div class="row-right" style="margin-top:10px;">
@@ -4092,9 +4104,17 @@ async function refreshFxTool() {
         const rate = s.pick(data);
 
         if (Number.isFinite(rate) && rate > 0) {
-          // ✅ 你可視需要調整小數位
+          // ✅ 工具/行程頁：更新即時匯率
           fxToolRate.value = Math.round(rate * 10000) / 10000;
           fxTool.value.updatedAt = nowTimeLabel();
+
+          // ✅ 同步：記帳「明細」匯率顯示也要跟著更新（今天/全部的情況）
+          const todayISO = new Date().toISOString().slice(0, 10);
+          fxCache.set(todayISO, fxToolRate.value); // 讓 loadFxForDate(今天) 直接吃最新值，不再抓舊資料
+
+          if (detailDateFilter.value === "全部" || detailDateFilter.value === todayISO) {
+            fxJpyToTwd.value = fxToolRate.value;   // 明細上那行匯率文字立即更新
+          }
 
           // 依照最後輸入欄位重新計算另一邊
           if (fxTool.value.lock === "jpy") onFxToolJpyInput();
@@ -4102,6 +4122,7 @@ async function refreshFxTool() {
 
           return true; // ✅ 成功
         }
+
 
         throw new Error("匯率資料無效");
       } catch (e) {
@@ -4112,12 +4133,25 @@ async function refreshFxTool() {
 
     // 全部來源都失敗
     throw lastErr || new Error("所有匯率來源皆失敗");
+
   } catch (e) {
     console.warn("工具頁匯率抓取失敗，改用預設值：", e);
+
     fxToolRate.value = DEFAULT_FX_JPY_TO_TWD; // 回退預設
     fxTool.value.updatedAt = nowTimeLabel();
+
+    // ✅ 同步：就算失敗回退預設，明細顯示也要更新（避免卡在舊值）
+    const todayISO = new Date().toISOString().slice(0, 10);
+    fxCache.set(todayISO, fxToolRate.value);
+
+    if (detailDateFilter.value === "全部" || detailDateFilter.value === todayISO) {
+      fxJpyToTwd.value = fxToolRate.value;
+    }
+
     return false;
   }
+
+
 }
 
 

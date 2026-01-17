@@ -1458,11 +1458,25 @@ body{
   flex-wrap:wrap; /* 小螢幕時可換行 */
 }
 
-/* 讓 file input 在 flex 裡不要硬吃 100% */
-.voucher-file-input{
-  flex: 1 1 240px;
-  width: auto;
+/* ✅ 隱藏原生 file input（移除「未選擇任何檔案」那串） */
+.voucher-file-hidden{
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
+
+/* ✅ label 當按鈕用時的 disabled 狀態 */
+.btn.is-disabled{
+  opacity: .5;
+  pointer-events: none;
+}
+
 
 /* 檔名/狀態顯示（未選擇/已選擇合一） */
 .voucher-file-pill{
