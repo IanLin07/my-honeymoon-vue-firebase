@@ -172,7 +172,7 @@ body{
 
 .day-title{ margin:10px 2px 10px 2px; font-size:16px; font-weight:900; }
 
-/* =============== Event card =============== */
+
 /* =============== Event card =============== */
 /* 外層：左時間軸 + 右卡片（卡片寬度會等於筆記寬度） */
 .event-item{
@@ -244,16 +244,52 @@ body{
   margin-bottom:0;           /* ✅ 外層 event-item 已負責間距 */
 }
 
+/* 右側卡片內：標題 + 按鈕列（手機避免被擠出螢幕） */
 .event-row{
   display:flex;
   gap:10px;
-  align-items:center;
+  align-items:flex-start;     /* ✅ 讓文字可多行時不會把按鈕垂直置中造成擠壓 */
+  flex-wrap:wrap;             /* ✅ 小螢幕允許換行 */
 }
 
-.event-body{ flex:1; min-width:0; }
-.event-loc{ font-size:14px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.event-stay{ margin-top:4px; font-size:12px; opacity:.75; font-weight:700; }
-.event-actions{ display:flex; gap:8px; justify-content:flex-end; align-items:center; }
+/* 讓文字區可縮，避免把按鈕推到畫面外 */
+.event-body{
+  flex:1;
+  min-width:0;
+}
+
+/* ✅ 行程名稱：允許換行，最多 2 行，超過用省略號 */
+.event-loc{
+  font-size:14px;
+  font-weight:900;
+
+  white-space:normal;         /* ✅ 允許換行 */
+  overflow:hidden;
+  text-overflow:ellipsis;
+
+  display:-webkit-box;        /* ✅ 多行省略 */
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;       /* ✅ 最多 2 行 */
+  line-height:1.25;
+}
+
+/* 按鈕區：永遠不要被壓縮出畫面 */
+.event-actions{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+  align-items:center;
+  flex:0 0 auto;              /* ✅ 不被文字擠壓 */
+}
+
+/* ✅ 手機更保險：按鈕整排掉到下一行（不佔橫向空間） */
+@media (max-width: 420px){
+  .event-actions{
+    width:100%;
+    margin-top:8px;
+  }
+}
+
 
 
 
@@ -276,7 +312,7 @@ body{
 .note-actions{ margin-top:10px; display:flex; gap:10px; justify-content:flex-end; }
 
 .note-between{
-  margin:0 0 12px 0;
+  margin:0 10px0 12px 0;
   background:#eaf2ff;
   border:2px dashed rgba(79,182,255,.45);
   border-radius:16px;
@@ -349,6 +385,7 @@ body{
 }
 
 
+
 .btn{
   border:0;
   border-radius:14px;
@@ -356,7 +393,10 @@ body{
   font-weight:1000;
   cursor:pointer;
   transition:transform .12s ease, opacity .12s ease;
+  touch-action: manipulation; /* ✅ 手機點擊更穩 */
 }
+
+
 .btn:active{ transform:scale(.98); }
 
 .btn-primary{ background:#ffcf5a; color:#214c42; }

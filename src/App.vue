@@ -1062,10 +1062,12 @@
             <button
               class="btn btn-secondary btn-mini"
               type="button"
-              @click="updateExchangeRate"
+              :disabled="fxToolUpdating"
+              @click="manualRefreshFxTool"
             >
-              更新匯率
+              {{ fxToolUpdating ? "更新中…" : "更新匯率" }}
             </button>
+
           </div>
 
 
@@ -3991,7 +3993,7 @@ const fxTool = ref({
 
 // ✅ 工具頁匯率：1 JPY = ? TWD（預設 0.2）
 const fxToolRate = ref(DEFAULT_FX_JPY_TO_TWD);
-
+const fxToolUpdating = ref(false);
 
 function nowTimeLabel() {
   const d = new Date();
@@ -4047,33 +4049,106 @@ function round2(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
 }
 
+// ✅ 小工具：加 timeout，避免卡住導致你以為「更新失敗」
+async function fetchJsonWithTimeout(url, ms = 8000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function refreshFxTool() {
   try {
-    // ✅ 抓「1 JPY = ? TWD」
-    const url = `https://api.exchangerate.host/latest?base=JPY&symbols=TWD`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    // 依序嘗試多個來源（提高成功率）
+    const sources = [
+      {
+        name: "open.er-api.com",
+        url: "https://open.er-api.com/v6/latest/JPY",
+        pick: (data) => Number(data?.rates?.TWD),
+      },
+      {
+        name: "frankfurter.app",
+        url: "https://api.frankfurter.app/latest?from=JPY&to=TWD",
+        pick: (data) => Number(data?.rates?.TWD),
+      },
+      {
+        // 最後才用你原本的來源（有些情況會回空或被限制）
+        name: "exchangerate.host",
+        url: "https://api.exchangerate.host/latest?base=JPY&symbols=TWD",
+        pick: (data) => Number(data?.rates?.TWD),
+      },
+    ];
 
-    const rate = Number(data?.rates?.TWD);
-    if (Number.isFinite(rate) && rate > 0) {
-      fxToolRate.value = rate;
-      fxTool.value.updatedAt = nowTimeLabel();
+    let lastErr = null;
 
-      // 依照最後輸入欄位重新計算另一邊
-      if (fxTool.value.lock === "jpy") onFxToolJpyInput();
-      else onFxToolTwdInput();
+    for (const s of sources) {
+      try {
+        const data = await fetchJsonWithTimeout(s.url, 8000);
+        const rate = s.pick(data);
 
-      return true; // ✅ 成功
+        if (Number.isFinite(rate) && rate > 0) {
+          // ✅ 你可視需要調整小數位
+          fxToolRate.value = Math.round(rate * 10000) / 10000;
+          fxTool.value.updatedAt = nowTimeLabel();
+
+          // 依照最後輸入欄位重新計算另一邊
+          if (fxTool.value.lock === "jpy") onFxToolJpyInput();
+          else onFxToolTwdInput();
+
+          return true; // ✅ 成功
+        }
+
+        throw new Error("匯率資料無效");
+      } catch (e) {
+        lastErr = new Error(`[${s.name}] ${e?.message || e}`);
+        // 失敗就換下一個來源
+      }
     }
 
-    // 走到這裡代表 API 回來但資料不合理
-    throw new Error("匯率資料無效");
+    // 全部來源都失敗
+    throw lastErr || new Error("所有匯率來源皆失敗");
   } catch (e) {
-    console.warn("工具頁匯率抓取失敗，使用預設值 0.2（1 JPY = 0.2 TWD）：", e);
-    fxToolRate.value = DEFAULT_FX_JPY_TO_TWD; // ✅ 明確切回預設值
+    console.warn("工具頁匯率抓取失敗，改用預設值：", e);
+    fxToolRate.value = DEFAULT_FX_JPY_TO_TWD; // 回退預設
     fxTool.value.updatedAt = nowTimeLabel();
-    return false; // ❌ 失敗（已回退預設）
+    return false;
+  }
+}
+
+
+async function updateExchangeRate() {
+  const ok = await refreshFxTool();
+  if (ok) {
+    alert(`✅ 匯率更新成功（1 JPY = ${fxToolRate.value} TWD）`);
+  } else {
+    alert(`❌ 匯率更新失敗：已改用預設值 ${DEFAULT_FX_JPY_TO_TWD}`);
+  }
+}
+
+async function manualRefreshFxTool() {
+  if (fxToolUpdating.value) return;
+
+  fxToolUpdating.value = true;
+  try {
+    const ok = await refreshFxTool();
+
+    const lines = [];
+    if (ok) {
+      lines.push(`✅ 匯率更新成功（1 JPY = ${fxToolRate.value} TWD）`);
+    } else {
+      lines.push(`❌ 匯率更新失敗：已改用預設值 ${DEFAULT_FX_JPY_TO_TWD}`);
+    }
+
+    alert(lines.join("\n"));
+  } catch (e) {
+    alert(`❌ 匯率更新失敗：${e?.message || e}`);
+  } finally {
+    fxToolUpdating.value = false;
   }
 }
 
