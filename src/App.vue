@@ -82,7 +82,7 @@
               <div class="weather-top">
                 <div class="weather-top-left">
                   <div class="weather-city">
-                    <span class="pin">📍</span>
+                    <span class="pin">🗺️</span>
                     <span>{{ cityLabel(day.city || getDayCity(day)) }}</span>
                   </div>
 
@@ -131,7 +131,7 @@
 
 
           <div class="day-head">
-            <h2 class="day-title">📅 第 {{ day.day }} 天（{{ day.date }}）</h2>
+            <h2 class="day-title">🗓️ 第 {{ day.day }} 天（{{ day.date }}）</h2>
 
             <div class="day-head-actions" v-if="canWrite">
               <button class="btn btn-primary btn-mini" @click="openEventEditor(day.id, null)">新增</button>
@@ -145,104 +145,100 @@
             </div>
           </div>
 
-          <div v-for="(event, idx) in day.events" :key="idx">
-            <div
-              class="event-card"
-              :draggable="canWrite && eventDrag.armed && eventDrag.dayId === day.id && eventDrag.fromIdx === idx"
-              :class="{ dragging: eventDrag.dragging && eventDrag.dayId === day.id && eventDrag.draggingIdx === idx }"
-              @dragstart="onEventDragStart(day.id, idx, $event)"
-              @dragover="onEventDragOver(day.id, idx, $event)"
-              @drop="onEventDrop(day.id, idx, $event)"
-              @dragend="onEventDragEnd"
-              @click="onEventCardClick(day.id, idx, $event)"
-            >
-
-
-              <div class="event-row">
-                <!-- ✅ 拖曳握把：按住才可拖，不觸發長按編輯 -->
-
-
-                <div class="event-time">{{ event.time }}</div>
-
-                <div class="event-body">
-                  <div class="event-loc">{{ event.loc }}</div>
-                  <div class="event-stay">⏱️ 停留 {{ event.stay }}</div>
-                </div>
-
-                <div class="event-actions">
-                  <button
-                    class="btn btn-secondary btn-mini"
-                    type="button"
-                    @pointerup.stop
-                    @touchend.stop
-                    @click.stop="openNavigation(event.loc)"
-                  >
-                    導航
-                  </button>
-
-                  <button
-                    class="btn btn-secondary btn-mini"
-                    type="button"
-                    @pointerup.stop
-                    @touchend.stop
-                    @click.stop="toggleNote(day.id, idx)"
-                  >
-                    筆記
-                  </button>
-
-                </div>
-
+          <div v-for="(event, idx) in day.events" :key="idx" class="event-item">
+            <!-- 左側：時間樣式（獨立於卡片） -->
+            <div class="time-rail" aria-hidden="true">
+              <div class="time-text">{{ event.time }}</div>
+              <div class="time-railbar">
+                <div class="time-dot"></div>
+                <div v-if="idx !== day.events.length - 1" class="time-line"></div>
               </div>
 
+            </div>
 
-              <div v-if="event.showNote" class="note-panel">
-                <textarea
-                  v-model="event.note"
-                  class="note-textarea"
-                  placeholder="輸入筆記..."
-                  :disabled="!canWrite"
-                ></textarea>
+            <!-- 右側：卡片 + 筆記（同寬） -->
+            <div class="event-stack">
+              <div
+                class="event-card"
+                :draggable="canWrite && eventDrag.armed && eventDrag.dayId === day.id && eventDrag.fromIdx === idx"
+                :class="{ dragging: eventDrag.dragging && eventDrag.dayId === day.id && eventDrag.draggingIdx === idx }"
+                @dragstart="onEventDragStart(day.id, idx, $event)"
+                @dragover="onEventDragOver(day.id, idx, $event)"
+                @drop="onEventDrop(day.id, idx, $event)"
+                @dragend="onEventDragEnd"
+                @click="onEventCardClick(day.id, idx, $event)"
+              >
+                <div class="event-row">
+                  <div class="event-body">
+                    <div class="event-loc">{{ event.loc }}</div>
+                    <div class="event-stay">⏱️ 停留 {{ event.stay }}</div>
+                  </div>
 
-                <div class="note-actions">
-                  <!-- ✅ 刪除：只在展開筆記時顯示 -->
-                  <button
-                    v-if="canWrite"
-                    class="icon-btn icon-danger"
-                    type="button"
-                    title="清除本行程筆記"
-                    aria-label="清除本行程筆記"
-                    @click.stop="clearEventNote(day.id, idx)"
-                  >
-                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        fill="currentColor"
-                        d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 7h2v9h-2v-9zm4 0h2v9h-2v-9zM7 10h2v9H7v-9zm1-1h10l-1 13H9L8 9z"
-                      />
-                    </svg>
-                  </button>
+                  <div class="event-actions">
+                    <button
+                      class="btn btn-secondary btn-mini"
+                      type="button"
+                      @pointerup.stop
+                      @touchend.stop
+                      @click.stop="openNavigation(event.loc)"
+                    >
+                      🗺️
+                    </button>
 
-                  <!-- ✅ 收合：自動儲存 + 收合 -->
-                  <button class="btn btn-secondary" @click.stop="collapseAndSaveNote(day.id, idx)">
-                    收合
-                  </button>
+                    <button
+                      class="btn btn-secondary btn-mini"
+                      type="button"
+                      @pointerup.stop
+                      @touchend.stop
+                      @click.stop="toggleNote(day.id, idx)"
+                    >
+                      📝
+                    </button>
+                  </div>
                 </div>
 
+                <div v-if="event.showNote" class="note-panel">
+                  <textarea
+                    v-model="event.note"
+                    class="note-textarea"
+                    placeholder="輸入筆記..."
+                    :disabled="!canWrite"
+                  ></textarea>
 
+                  <div class="note-actions">
+                    <button
+                      v-if="canWrite"
+                      class="icon-btn icon-danger"
+                      type="button"
+                      title="清除本行程筆記"
+                      aria-label="清除本行程筆記"
+                      @click.stop="clearEventNote(day.id, idx)"
+                    >
+                      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          fill="currentColor"
+                          d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 7h2v9h-2v-9zm4 0h2v9h-2v-9zM7 10h2v9H7v-9zm1-1h10l-1 13H9L8 9z"
+                        />
+                      </svg>
+                    </button>
 
+                    <button class="btn btn-secondary" @click.stop="collapseAndSaveNote(day.id, idx)">
+                      收合
+                    </button>
+                  </div>
 
-                <div v-if="!canWrite" class="readonly-hint" style="margin-top:8px;">
-                  只讀模式：筆記可看但不可改。
+                  <div v-if="!canWrite" class="readonly-hint" style="margin-top:8px;">
+                    只讀模式：筆記可看但不可改。
+                  </div>
                 </div>
               </div>
+
+              <div v-if="noteExists(event) && !event.showNote" class="note-between">
+                <div class="note-between-body">{{ event.note }}</div>
+              </div>
             </div>
-
-            <div v-if="noteExists(event) && !event.showNote" class="note-between">
-              <div class="note-between-body">{{ event.note }}</div>
-            </div>
-
-
-
           </div>
+
 
           <div v-if="!day.events || day.events.length === 0" class="empty-state">
             這一天還沒有行程內容～先去吃個布丁再回來加🍮
@@ -1046,7 +1042,7 @@
         </div>
 
 
-        <button class="btn btn-ghost btn-mini" @click="deletePrepItem(prepTab, it)">刪除</button>
+        <button class="btn btn-ghost btn-mini" @click="deletePrepItem(prepTab, it)">🗑️</button>
       </div>
 
     </div>
@@ -1141,16 +1137,16 @@
                     {{ (it.branch || '').trim() ? it.branch : '（未填分店）' }}
                   </span>
 
-                  <button class="backup-pill" type="button" @click.stop="openBackupEditor('food', it)">
-                    照片
+                  <button class="btn btn-ghost btn-mini" type="button" @click.stop="openBackupEditor('food', it)">
+                    🏞️
                   </button>
 
                   <button
-                    class="backup-pill"
+                    class="btn btn-ghost btn-mini"
                     type="button"
                     @click.stop="openNavigation(it.mapQuery || it.title)"
                   >
-                    導航
+                    🗺️
                   </button>
                 </div>
               </div>
@@ -1173,7 +1169,7 @@
 
         <!-- ===== 地點 ===== -->
         <div v-else class="card">
-          <div class="card-title">📍 地點</div>
+          <div class="card-title">🗺️ 地點</div>
 
 
           <div class="row-right" style="margin-top:10px;">
@@ -1212,7 +1208,7 @@
                     type="button"
                     @click.stop="openNavigation(it.mapQuery || it.address || it.title)"
                   >
-                    導航
+                    🗺️
                   </button>
                 </div>
               </div>
