@@ -82,7 +82,7 @@
               <div class="weather-top">
                 <div class="weather-top-left">
                   <div class="weather-city">
-                    <span class="pin">🗺️</span>
+                    <span class="pin">📍</span>
                     <span>{{ cityLabel(day.city || getDayCity(day)) }}</span>
                   </div>
 
@@ -182,7 +182,7 @@
                       @touchend.stop
                       @click.stop="openNavigation(event.loc)"
                     >
-                      🗺️
+                      📍
                     </button>
 
                     <button
@@ -356,18 +356,23 @@
           <div
             v-for="b in filteredBookings"
             :key="b.id"
-            class="booking-card booking-card2"
-            
           >
-            <!-- 上方淡藍區塊（像圖2） -->
-            <div class="bk2-topbar">
-              <div class="bk2-airline">{{ b.vendor || bookingTypeLabel(b.type) }}</div>
+            <!-- 🏨 住宿：改成你提供的住宿卡片樣式 -->
+            <div v-if="b.type === 'hotel'" class="booking-card booking-stay-card">
+              <div class="stay-hero">
+                <img
+                  v-if="bookingStayCoverUrl(b)"
+                  class="stay-hero-img"
+                  :src="bookingStayCoverUrl(b)"
+                  :alt="b.title || 'stay'"
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
+                />
+                <div v-else class="stay-hero-placeholder"></div>
 
-              <div class="bk2-top-actions">
-                <!-- ✅ 有憑證才顯示：任何人可點開 -->
                 <button
                   v-if="b.voucherUrl"
-                  class="bk2-mini-btn"
+                  class="stay-hero-btn"
                   type="button"
                   @click.stop="openBookingVoucher(b)"
                   title="開啟憑證（PDF/照片）"
@@ -375,82 +380,166 @@
                   憑證
                 </button>
 
-
-              </div>
-            </div>
-
-
-            <!-- 大訂位代碼 -->
-            <div class="bk2-code">
-              <div class="bk2-code-text">{{ b.code || "—" }}</div>
-            </div>
-
-            <!-- 中間航段卡（flight 才顯示） -->
-            <div v-if="b.type === 'flight'" class="bk2-route">
-              <div class="bk2-col">
-                <div class="bk2-iata">{{ b.from || "—" }}</div>
-                <div class="bk2-time">{{ b.departTime || "—" }}</div>
-                <div class="bk2-chip bk2-chip-green">出發</div>
-              </div>
-
-              <div class="bk2-mid">
-                <div class="bk2-duration">{{ b.duration || "—" }}</div>
-                <div class="bk2-plane">✈️</div>
-                <div class="bk2-date">{{ b.date || "—" }}</div>
-              </div>
-
-              <div class="bk2-col">
-                <div class="bk2-iata">{{ b.to || "—" }}</div>
-                <div class="bk2-time">{{ b.arriveTime || "—" }}</div>
-                <div class="bk2-chip bk2-chip-orange">抵達</div>
-              </div>
-            </div>
-
-            <!-- 非 flight：就用簡潔資訊卡 -->
-            <div v-else class="bk2-route bk2-route-simple">
-              <div class="bk2-simple-title">{{ b.title || "（未命名）" }}</div>
-              <div class="bk2-simple-sub">{{ b.date || "—" }}</div>
-            </div>
-
-            <!-- 行李/機型 -->
-            <div class="bk2-meta">
-              <div class="bk2-meta-item">
-                <div class="bk2-meta-label">BAGGAGE</div>
-                <div class="bk2-meta-value">{{ b.baggage || "—" }}</div>
-              </div>
-              <div class="bk2-meta-divider"></div>
-              <div class="bk2-meta-item">
-                <div class="bk2-meta-label">AIRCRAFT</div>
-                <div class="bk2-meta-value">{{ b.aircraft || "—" }}</div>
-              </div>
-            </div>
-
-            <!-- 價格/購買日 -->
-            <div class="bk2-bottom">
-              <div class="bk2-box">
-                <div class="bk2-box-label">PRICE & TYPE</div>
-                <div class="bk2-box-value">
-                  {{ b.priceTwd ? `NT$${formatNumber(b.priceTwd)}` : "—" }}
+                <div class="stay-hero-overlay">
+                  <div class="stay-chip">{{ b.vendor || '住宿' }}</div>
+                  <div class="stay-title">{{ b.title || '（未命名）' }}</div>
                 </div>
               </div>
 
-              <div class="bk2-box">
-                <div class="bk2-box-label">PURCHASED</div>
-                <div class="bk2-box-value">{{ b.purchasedAt || "—" }}</div>
-                
+              <div class="stay-body">
+                <div class="stay-dates">
+                  <div class="stay-datebox">
+                    <div class="stay-date-label">CHECK-IN</div>
+                    <div class="stay-date">{{ b.date || '—' }}</div>
+                    <div class="stay-time">{{ bookingStayCheckInTime(b) }}</div>
+                  </div>
+
+                  <div class="stay-datebox">
+                    <div class="stay-date-label">CHECK-OUT</div>
+                    <div class="stay-date">{{ bookingStayCheckOutDate(b) || '—' }}</div>
+                    <div class="stay-time">{{ bookingStayCheckOutTime(b) }}</div>
+                  </div>
+                </div>
+
+                <div class="stay-section">
+                  <div class="stay-section-head">
+                    <div class="stay-section-icon">🗺️</div>
+                    <div class="stay-section-title">地點資訊</div>
+                  </div>
+                  <div class="stay-address">{{ bookingStayAddress(b) || '—' }}</div>
+                </div>
+
+                <div class="stay-section">
+                  <div class="stay-section-head">
+                    <div class="stay-section-icon">🧾</div>
+                    <div class="stay-section-title">費用明細</div>
+                  </div>
+
+                  <div class="stay-cost">
+                    <div class="stay-cost-top">
+                      <div class="stay-cost-label">
+                        總金額<span v-if="bookingStayNights(b)">（{{ bookingStayNights(b) }}晚）</span>
+                      </div>
+                      <div class="stay-cost-total">
+                        {{ b.priceTwd ? `NT$ ${formatNumber(b.priceTwd)}` : '—' }}
+                      </div>
+                    </div>
+
+                    <div class="stay-cost-rows" v-if="bookingStaySplitCount()">
+                      <div class="stay-cost-row">
+                        <div class="stay-cost-k">每人分攤（{{ bookingStaySplitCount() }}人）</div>
+                        <div class="stay-cost-v">
+                          {{ bookingStayPerPerson(b) ? `NT$ ${formatNumber(bookingStayPerPerson(b))}` : '—' }}
+                        </div>
+                      </div>
+
+                      <div class="stay-cost-row stay-cost-row-green" v-if="bookingStayPerPersonPerNight(b)">
+                        <div class="stay-cost-k">每人每晚</div>
+                        <div class="stay-cost-v">NT$ {{ formatNumber(bookingStayPerPersonPerNight(b)) }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 保留原功能：編輯 -->
+                <button
+                  v-if="canWrite"
+                  class="bk2-edit-btn"
+                  type="button"
+                  @click.stop="openBookingEditor(b)"
+                >
+                  ✏️ 編輯資訊
+                </button>
               </div>
             </div>
 
-            <!-- 底部按鈕（像圖2的「編輯資訊」） -->
-            <button
-              v-if="canWrite"
-              class="bk2-edit-btn"
-              type="button"
-              @click.stop="openBookingEditor(b)"
-            >
-              ✏️ 編輯資訊
-            </button>
+            <!-- 其他類型：維持原本 booking-card2（原封不動搬進來） -->
+            <div v-else class="booking-card booking-card2">
+              <!-- 上方淡藍區塊（像圖2） -->
+              <div class="bk2-topbar">
+                <div class="bk2-airline">{{ b.vendor || bookingTypeLabel(b.type) }}</div>
+
+                <div class="bk2-top-actions">
+                  <button
+                    v-if="b.voucherUrl"
+                    class="bk2-mini-btn"
+                    type="button"
+                    @click.stop="openBookingVoucher(b)"
+                    title="開啟憑證（PDF/照片）"
+                  >
+                    憑證
+                  </button>
+                </div>
+              </div>
+
+              <div class="bk2-code">
+                <div class="bk2-code-text">{{ b.code || "—" }}</div>
+              </div>
+
+              <div v-if="b.type === 'flight'" class="bk2-route">
+                <div class="bk2-col">
+                  <div class="bk2-iata">{{ b.from || "—" }}</div>
+                  <div class="bk2-time">{{ b.departTime || "—" }}</div>
+                  <div class="bk2-chip bk2-chip-green">出發</div>
+                </div>
+
+                <div class="bk2-mid">
+                  <div class="bk2-duration">{{ b.duration || "—" }}</div>
+                  <div class="bk2-plane">✈️</div>
+                  <div class="bk2-date">{{ b.date || "—" }}</div>
+                </div>
+
+                <div class="bk2-col">
+                  <div class="bk2-iata">{{ b.to || "—" }}</div>
+                  <div class="bk2-time">{{ b.arriveTime || "—" }}</div>
+                  <div class="bk2-chip bk2-chip-orange">抵達</div>
+                </div>
+              </div>
+
+              <div v-else class="bk2-route bk2-route-simple">
+                <div class="bk2-simple-title">{{ b.title || "（未命名）" }}</div>
+                <div class="bk2-simple-sub">{{ b.date || "—" }}</div>
+              </div>
+
+              <div class="bk2-meta">
+                <div class="bk2-meta-item">
+                  <div class="bk2-meta-label">BAGGAGE</div>
+                  <div class="bk2-meta-value">{{ b.baggage || "—" }}</div>
+                </div>
+                <div class="bk2-meta-divider"></div>
+                <div class="bk2-meta-item">
+                  <div class="bk2-meta-label">AIRCRAFT</div>
+                  <div class="bk2-meta-value">{{ b.aircraft || "—" }}</div>
+                </div>
+              </div>
+
+              <div class="bk2-bottom">
+                <div class="bk2-box">
+                  <div class="bk2-box-label">PRICE & TYPE</div>
+                  <div class="bk2-box-value">
+                    {{ b.priceTwd ? `NT$${formatNumber(b.priceTwd)}` : "—" }}
+                  </div>
+                </div>
+
+                <div class="bk2-box">
+                  <div class="bk2-box-label">PURCHASED</div>
+                  <div class="bk2-box-value">{{ b.purchasedAt || "—" }}</div>
+                </div>
+              </div>
+
+              <button
+                v-if="canWrite"
+                class="bk2-edit-btn"
+                type="button"
+                @click.stop="openBookingEditor(b)"
+              >
+                ✏️ 編輯資訊
+              </button>
+            </div>
           </div>
+
+          
+
 
         </div>
 
@@ -1160,7 +1249,7 @@
                     type="button"
                     @click.stop="openNavigation(it.mapQuery || it.title)"
                   >
-                    🗺️
+                    📍
                   </button>
                 </div>
               </div>
@@ -1222,7 +1311,7 @@
                     type="button"
                     @click.stop="openNavigation(it.mapQuery || it.address || it.title)"
                   >
-                    🗺️
+                    📍
                   </button>
                 </div>
               </div>
@@ -1626,6 +1715,73 @@ function bookingTypeLabel(type) {
   if (type === "car") return "租車";
   if (type === "voucher") return "憑證";
   return "預定";
+}
+
+/* ===================== Booking（住宿卡片）helpers ===================== */
+function bookingStayCoverUrl(b) {
+  const cover = String(b?.coverUrl || "").trim();
+  if (cover) return cover;
+
+  const isImgVoucher = String(b?.voucherType || "") === "image";
+  if (isImgVoucher) return String(b?.voucherUrl || "").trim();
+  return "";
+}
+
+function bookingStayCheckOutDate(b) {
+  return String(
+    b?.checkOutDate || b?.checkoutDate || b?.checkOut || b?.purchasedAt || ""
+  ).trim();
+}
+
+function bookingStayCheckInTime(b) {
+  return String(b?.checkInTime || b?.checkinTime || "15:00").trim();
+}
+
+function bookingStayCheckOutTime(b) {
+  return String(b?.checkOutTime || b?.checkoutTime || "11:00").trim();
+}
+
+function bookingStayAddress(b) {
+  return String(
+    b?.address || b?.location || b?.loc || b?.place || b?.from || b?.to || ""
+  ).trim();
+}
+
+function bookingStaySplitCount() {
+  const n = Array.isArray(members.value) ? members.value.length : 0;
+  return n > 0 ? n : null; // 只在「已載入 members」時顯示分攤
+}
+
+function _ymdToUtcMs(s) {
+  const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return NaN;
+  const y = Number(m[1]);
+  const mo = Number(m[2]) - 1;
+  const d = Number(m[3]);
+  return Date.UTC(y, mo, d);
+}
+
+function bookingStayNights(b) {
+  const checkIn = _ymdToUtcMs(b?.date);
+  const checkOut = _ymdToUtcMs(bookingStayCheckOutDate(b));
+  if (!Number.isFinite(checkIn) || !Number.isFinite(checkOut)) return null;
+  const diff = Math.round((checkOut - checkIn) / 86400000);
+  return diff > 0 ? diff : null;
+}
+
+function bookingStayPerPerson(b) {
+  const total = Number(b?.priceTwd);
+  const n = bookingStaySplitCount();
+  if (!Number.isFinite(total) || !n) return null;
+  return Math.round(total / n);
+}
+
+function bookingStayPerPersonPerNight(b) {
+  const total = Number(b?.priceTwd);
+  const n = bookingStaySplitCount();
+  const nights = bookingStayNights(b);
+  if (!Number.isFinite(total) || !n || !nights) return null;
+  return Math.round(total / (n * nights));
 }
 
 

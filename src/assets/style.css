@@ -1489,3 +1489,211 @@ body{
   padding: 8px 12px;
 }
 
+/* ===================== Booking（住宿卡片：對齊你提供的截圖） ===================== */
+.booking-stay-card{
+  max-width: 430px;
+  margin: 14px auto;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #f7f4ee;
+  border: 2px solid rgba(0,0,0,.06);
+  box-shadow: 0 18px 36px rgba(0,0,0,.12);
+}
+
+.stay-hero{
+  position: relative;
+  height: 200px;
+}
+
+.stay-hero-img,
+.stay-hero-placeholder{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.stay-hero-placeholder{
+  background: linear-gradient(135deg, rgba(79,182,255,.22), rgba(255,223,122,.22));
+}
+
+.stay-hero-overlay{
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 14px 14px 16px;
+  background: linear-gradient(to top, rgba(0,0,0,.45), rgba(0,0,0,0));
+}
+
+.stay-chip{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(79,182,255,.95);
+  color: #fff;
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1;
+  box-shadow: 0 10px 18px rgba(0,0,0,.12);
+}
+
+.stay-title{
+  margin-top: 10px;
+  color: #fff;
+  font-weight: 1000;
+  font-size: 26px;
+  letter-spacing: .2px;
+  text-shadow: 0 8px 18px rgba(0,0,0,.35);
+}
+
+.stay-hero-btn{
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(0,0,0,.35);
+  color: #fff;
+  font-weight: 900;
+  font-size: 12px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.stay-body{
+  padding: 14px;
+}
+
+.stay-dates{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.stay-datebox{
+  background: #fff;
+  border: 2px solid rgba(0,0,0,.06);
+  border-radius: 18px;
+  padding: 10px 10px 12px;
+  text-align: center;
+}
+
+.stay-date-label{
+  font-size: 11px;
+  font-weight: 900;
+  opacity: .6;
+  letter-spacing: .8px;
+}
+
+.stay-date{
+  margin-top: 8px;
+  font-weight: 1000;
+  font-size: 18px;
+}
+
+.stay-time{
+  margin-top: 6px;
+  font-weight: 1000;
+  font-size: 12px;
+  color: #2e9b8f;
+}
+
+.stay-section{
+  margin-top: 14px;
+}
+
+.stay-section-head{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.stay-section-icon{
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+}
+
+.stay-section-title{
+  font-weight: 1000;
+  font-size: 14px;
+}
+
+.stay-address{
+  background: #fff;
+  border: 2px solid rgba(0,0,0,.06);
+  border-radius: 18px;
+  padding: 12px;
+  font-weight: 900;
+  opacity: .85;
+  word-break: break-word;
+}
+
+.stay-cost{
+  background: rgba(255,223,122,.35);
+  border: 2px solid rgba(242, 162, 74, .25);
+  border-radius: 18px;
+  padding: 12px;
+}
+
+.stay-cost-top{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px dashed rgba(0,0,0,.08);
+}
+
+.stay-cost-label{
+  font-weight: 1000;
+  font-size: 13px;
+  color: rgba(0,0,0,.62);
+}
+
+.stay-cost-total{
+  font-weight: 1200;
+  font-size: 22px;
+  letter-spacing: .3px;
+}
+
+.stay-cost-rows{
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.stay-cost-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.stay-cost-k{
+  opacity: .72;
+}
+
+.stay-cost-row-green .stay-cost-v{
+  color: #2e9b8f;
+}
+
+/* 讓住宿卡底部的「編輯資訊」跟卡片寬度一致（沿用 bk2-edit-btn 但在此區塊內更順眼） */
+.booking-stay-card .bk2-edit-btn{
+  margin-top: 12px;
+}
+
+@media (max-width: 420px){
+  .booking-stay-card{ border-radius: 24px; }
+  .stay-title{ font-size: 22px; }
+}
