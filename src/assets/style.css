@@ -1344,12 +1344,37 @@ body{
   font-weight: 1000;
   font-size: 14px;
 }
+
 .booking-card.booking-card2 .bk2-simple-sub{
-  margin-top: 6px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
   font-weight: 900;
   font-size: 12px;
-  opacity: .65;
+  opacity: .85;
+
+  background: rgba(79,182,255,.10);
+  border: 2px solid rgba(0,0,0,.05);
+  border-radius: 14px;
+  padding: 8px 10px;
 }
+
+.booking-card.booking-card2 .bk2-simple-sub-label{
+  font-weight: 1000;
+  opacity: .70;
+  white-space: nowrap;
+}
+
+.booking-card.booking-card2 .bk2-simple-sub-date{
+  font-weight: 1000;
+  opacity: .95;
+  text-align: right;
+  min-width: 0;
+}
+
 
 /* 行李/機型列 */
 .booking-card.booking-card2 .bk2-meta{
@@ -1424,17 +1449,9 @@ body{
   opacity: .55;
 }
 
-/* 底部大按鈕 */
-.booking-card.booking-card2 .bk2-edit-btn{
-  width: calc(100% - 32px);
-  margin: 0 16px 16px;
-  border: 2px solid rgba(0,0,0,.06);
-  background: rgba(255,255,255,.95);
-  border-radius: 18px;
-  padding: 12px 14px;
-  font-weight: 1000;
-  cursor: pointer;
-}
+
+
+
 
 /* 手機：卡片更貼邊 */
 @media (max-width: 420px){
@@ -1688,12 +1705,32 @@ body{
   color: #2e9b8f;
 }
 
-/* 讓住宿卡底部的「編輯資訊」跟卡片寬度一致（沿用 bk2-edit-btn 但在此區塊內更順眼） */
-.booking-stay-card .bk2-edit-btn{
-  margin-top: 12px;
+/* ✅ 統一「編輯資訊」按鈕外觀（住宿/機票一致） */
+.bk2-edit-btn{
+  border: 2px solid rgba(0,0,0,.06);
+  background: rgba(255,255,255,.95);
+  border-radius: 18px;
+  padding: 12px 14px;
+  font-weight: 1000;
+  cursor: pointer;
 }
+
+/* 底部大按鈕（booking-card2：維持你原本的內縮） */
+.booking-card.booking-card2 .bk2-edit-btn{
+  width: calc(100% - 32px);
+  margin: 0 16px 16px;
+}
+
+/* 住宿卡：同外觀，但用 stay-body 的內距做版面（不再變形） */
+.booking-stay-card .bk2-edit-btn{
+  width: 100%;
+  margin: 12px 0 0;
+}
+
+
 
 @media (max-width: 420px){
   .booking-stay-card{ border-radius: 24px; }
   .stay-title{ font-size: 22px; }
 }
+

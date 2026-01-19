@@ -498,10 +498,19 @@
 
               <div v-else class="bk2-route bk2-route-simple">
                 <div class="bk2-simple-title">{{ b.title || "（未命名）" }}</div>
-                <div class="bk2-simple-sub">{{ b.date || "—" }}</div>
+
+                <div class="bk2-simple-sub">
+                  <span class="bk2-simple-sub-label">{{ b.type === "voucher" ? "使用日期" : "日期" }}</span>
+                  <span class="bk2-simple-sub-date">
+                    {{
+                      (b.type === "voucher" ? (b.usageDate || b.date) : b.date) || "—"
+                    }}
+                  </span>
+                </div>
               </div>
 
-              <div class="bk2-meta">
+              <!-- ✅ baggage / aircraft：只有機票顯示 -->
+              <div class="bk2-meta" v-if="b.type === 'flight'">
                 <div class="bk2-meta-item">
                   <div class="bk2-meta-label">BAGGAGE</div>
                   <div class="bk2-meta-value">{{ b.baggage || "—" }}</div>
@@ -512,6 +521,7 @@
                   <div class="bk2-meta-value">{{ b.aircraft || "—" }}</div>
                 </div>
               </div>
+
 
               <div class="bk2-bottom">
                 <div class="bk2-box">
@@ -1014,10 +1024,42 @@
             </div>
 
             <div class="form-grid" style="margin-top:10px;">
-              <label class="field">
-                <div class="field-label">日期</div>
-                <input class="field-input" type="date" v-model="expenseEditor.form.date" :disabled="!canEditExpense(expenseEditor.origin)" />
+
+
+
+              <!-- ✅ 日期（依類型顯示）：憑證＝使用日期；住宿＝Check-in + Check-out；其他＝日期 -->
+              <label class="field" v-if="bookingEditor.form.type === 'voucher'">
+                <div class="field-label">使用日期</div>
+                <input
+                  class="field-input"
+                  type="date"
+                  v-model="bookingEditor.form.usageDate"
+                  :disabled="!canWrite"
+                />
               </label>
+
+              <label class="field" v-else>
+                <div class="field-label">
+                  {{ bookingEditor.form.type === 'hotel' ? 'Check-in 日期' : '日期' }}
+                </div>
+                <input
+                  class="field-input"
+                  type="date"
+                  v-model="bookingEditor.form.date"
+                  :disabled="!canWrite"
+                />
+              </label>
+
+              <label class="field" v-if="bookingEditor.form.type === 'hotel'">
+                <div class="field-label">Check-out 日期</div>
+                <input
+                  class="field-input"
+                  type="date"
+                  v-model="bookingEditor.form.checkOutDate"
+                  :disabled="!canWrite"
+                />
+              </label>
+
 
               <label class="field">
                 <div class="field-label">金額</div>
@@ -1142,6 +1184,13 @@
           <span :class="{ done: it.done }">{{ it.text }}</span>
         </div>
 
+        <button
+          class="btn btn-ghost btn-mini"
+          type="button"
+          @click.stop="openPrepEditor(kind, it)"
+        >
+          ✏️
+        </button>
 
         <button class="btn btn-ghost btn-mini" @click="deletePrepItem(prepTab, it)">🗑️</button>
       </div>
@@ -1687,26 +1736,31 @@ function timeKey(t) {
 const filteredBookings = computed(() => {
   const t = bookingTab.value;
 
-  // 先篩選 tab，再排序（回傳新陣列，避免動到原始 bookings）
   const list = (bookings.value || []).filter((b) => (b.type || "flight") === t);
 
+  const pickDate = (b) => {
+    if (t === "voucher") return b?.usageDate || b?.date || "";
+    return b?.date || "";
+  };
+
   return [...list].sort((a, b) => {
-    // 1) 日期：越早越前
-    const ad = bookingDateKey(a.date);
-    const bd = bookingDateKey(b.date);
+    // 1) 日期：越早越前（憑證使用 usageDate）
+    const ad = bookingDateKey(pickDate(a));
+    const bd = bookingDateKey(pickDate(b));
     if (ad !== bd) return ad - bd;
 
-    // 2) 同一天：機票用出發時間（越早越前）；非機票沒有就自然排後
+    // 2) 同一天：機票用出發時間（越早越前）
     const at = timeKey(a.departTime);
     const bt = timeKey(b.departTime);
     if (at !== bt) return at - bt;
 
-    // 3) 再同：用 createdAt 當穩定排序（越新越後/越前都可；這裡用越早越前）
+    // 3) createdAt 穩定排序
     const ac = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
     const bc = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
     return ac - bc;
   });
 });
+
 
 
 function bookingTypeLabel(type) {
@@ -1937,6 +1991,9 @@ async function saveBackupEdit() {
     mapQuery: String(backupEditor.value.form.mapQuery || "").trim(),
     order: Date.now(),
     updatedAt: serverTimestamp(),
+    checkOutDate: f.checkOutDate || "",
+    usageDate: f.usageDate || "",
+
   };
 
   if (kind === "food") {
@@ -3217,6 +3274,9 @@ async function addExpenseFromFancy() {
     uid: user.value.uid,
     displayName: user.value.displayName || "使用者",
     createdAt: serverTimestamp(),
+    checkOutDate: f.checkOutDate || "",
+    usageDate: f.usageDate || "",
+
   };
 
   const localId = `local_${Date.now()}`;
@@ -3374,19 +3434,25 @@ const bookingEditor = ref({
     arriveTime: "",
     duration: "",
     date: new Date().toISOString().slice(0, 10),
+
+    // ✅ 新增：住宿 check-out、憑證使用日期
+    checkOutDate: "",
+    usageDate: "",
+
     baggage: "",
     aircraft: "",
     priceTwd: null,
+    purchasedAt: "",
+
     voucherUrl: "",
     voucherPath: "",
     voucherName: "",
     voucherType: "",
-
   },
 });
 
 function onBookingCardClick(b) {
-  if (!canWrite.value) return; // 只讀：不彈編輯
+  if (!canWrite.value) return;
   openBookingEditor(b);
 }
 
@@ -3397,6 +3463,7 @@ function openBookingEditor(b) {
   }
 
   if (!b) {
+    const today = new Date().toISOString().slice(0, 10);
     bookingEditor.value.open = true;
     bookingEditor.value.isEdit = false;
     bookingEditor.value.originId = "";
@@ -3410,16 +3477,19 @@ function openBookingEditor(b) {
       departTime: "",
       arriveTime: "",
       duration: "",
-      date: new Date().toISOString().slice(0, 10),
+      date: today,
+
+      checkOutDate: "",
+      usageDate: today,
+
       baggage: "",
       aircraft: "",
       priceTwd: null,
       purchasedAt: "",
       voucherUrl: "",
+      voucherPath: "",
       voucherName: "",
       voucherType: "",
-
-
     };
     return;
   }
@@ -3438,15 +3508,19 @@ function openBookingEditor(b) {
     arriveTime: b.arriveTime || "",
     duration: b.duration || "",
     date: b.date || new Date().toISOString().slice(0, 10),
+
+    checkOutDate: b.checkOutDate || "",
+    usageDate: b.usageDate || "",
+
     baggage: b.baggage || "",
     aircraft: b.aircraft || "",
     priceTwd: typeof b.priceTwd === "number" ? b.priceTwd : null,
     purchasedAt: b.purchasedAt || "",
+
     voucherUrl: b.voucherUrl || "",
+    voucherPath: b.voucherPath || "",
     voucherName: b.voucherName || "",
     voucherType: b.voucherType || "",
-    voucherPath: b.voucherPath || "",
-
   };
 }
 
@@ -3457,15 +3531,29 @@ function closeBookingEditor() {
 }
 
 async function saveBookingEdit(options = { keepOpen: false }) {
-
   if (!canWrite.value) return alert("只讀模式無法儲存。請先登入並被加入 members。");
 
   const f = bookingEditor.value.form;
   if (!f.type) return alert("請選類型");
-  if (!f.date) return alert("請填日期");
+
+  const type = String(f.type || "flight").trim();
+
+  // ✅ 日期驗證（住宿要 check-out、憑證要使用日期）
+  if (type === "voucher") {
+    if (!String(f.usageDate || "").trim()) return alert("請填「使用日期」");
+  } else {
+    if (!String(f.date || "").trim()) return alert("請填日期");
+  }
+  if (type === "hotel") {
+    if (!String(f.checkOutDate || "").trim()) return alert("請填 Check-out 日期");
+  }
+
+  const normalizedDate = (type === "voucher")
+    ? String(f.usageDate || "").trim()
+    : String(f.date || "").trim();
 
   const payload = {
-    type: String(f.type || "flight"),
+    type,
     vendor: String(f.vendor || "").trim(),
     code: String(f.code || "").trim(),
     title: String(f.title || "").trim(),
@@ -3474,11 +3562,17 @@ async function saveBookingEdit(options = { keepOpen: false }) {
     departTime: String(f.departTime || "").trim(),
     arriveTime: String(f.arriveTime || "").trim(),
     duration: String(f.duration || "").trim(),
-    date: String(f.date || "").trim(),
+
+    // ✅ date 保持相容（憑證：date 同步為 usageDate）
+    date: normalizedDate,
+    usageDate: type === "voucher" ? String(f.usageDate || "").trim() : "",
+    checkOutDate: type === "hotel" ? String(f.checkOutDate || "").trim() : "",
+
     baggage: String(f.baggage || "").trim(),
     aircraft: String(f.aircraft || "").trim(),
     priceTwd: Number.isFinite(Number(f.priceTwd)) ? Number(f.priceTwd) : null,
     purchasedAt: String(f.purchasedAt || "").trim(),
+
     uid: user.value.uid,
     displayName: user.value.displayName || "使用者",
     updatedAt: serverTimestamp(),
@@ -3491,7 +3585,6 @@ async function saveBookingEdit(options = { keepOpen: false }) {
         createdAt: serverTimestamp(),
       });
 
-      // ✅ 新增成功後，立刻寫回 bookingId（之後上傳憑證才找得到路徑）
       bookingEditor.value.originId = docRef.id;
       bookingEditor.value.isEdit = true;
     } else {
@@ -3499,15 +3592,14 @@ async function saveBookingEdit(options = { keepOpen: false }) {
       await updateDoc(refDoc, payload);
     }
 
-
     if (!options.keepOpen) closeBookingEditor();
     alert("儲存成功！");
-
   } catch (e) {
     console.error("儲存 booking 失敗：", e);
     alert("儲存失敗（可能是 rules 不允許 / 網路問題）");
   }
 }
+
 
 async function deleteBooking() {
   if (!canWrite.value) return alert("只讀模式無法刪除。請先登入並被加入 members。");
@@ -3916,26 +4008,7 @@ function getPrepOrder(it) {
   return typeof it.order === "number" ? it.order : 0;
 }
 
-/*function sortedPrepItems(kind) {
-  return [...prep.value[kind].items].sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;
-    return getPrepOrder(a) - getPrepOrder(b);
-  });
-}*/
 
-
-
-/*async function togglePrepDone(kind, item) {
-  const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, `prep_${kind}`, item.id);
-  const newOrder = Date.now();
-
-  await updateDoc(refDoc, { done: item.done, order: newOrder });
-  item.order = newOrder;
-}
-
-async function deletePrepItem(kind, item) {
-  await deleteDoc(doc(db, "trips", DEFAULT_TRIP_ID, `prep_${kind}`, item.id));
-}*/
 
 
 
@@ -3989,14 +4062,25 @@ function subscribeBookings() {
           departTime: data.departTime || "",
           arriveTime: data.arriveTime || "",
           duration: data.duration || "",
+
+          // ✅ 日期欄位
           date: data.date || "",
+          checkOutDate: data.checkOutDate || "",
+          usageDate: data.usageDate || "",
+
+          // flight meta（憑證頁會隱藏顯示，但資料可留著）
           baggage: data.baggage || "",
           aircraft: data.aircraft || "",
+
           priceTwd: typeof data.priceTwd === "number" ? data.priceTwd : null,
           purchasedAt: data.purchasedAt || "",
+
+          // voucher / cover
           voucherUrl: data.voucherUrl || "",
+          voucherPath: data.voucherPath || "",
           voucherName: data.voucherName || "",
           voucherType: data.voucherType || "",
+          coverUrl: data.coverUrl || "",
 
           uid: data.uid || "",
           displayName: data.displayName || "",
@@ -4012,6 +4096,7 @@ function subscribeBookings() {
     }
   );
 }
+
 
 function unsubscribeBookings() {
   if (unsubBookings) unsubBookings();
