@@ -394,6 +394,11 @@
                     <div class="stay-time">{{ bookingStayCheckInTime(b) }}</div>
                   </div>
 
+                  <!-- ✅ 新增：顯示住幾晚（自動計算） -->
+                  <div class="stay-nights" v-if="bookingStayNights(b)">
+                    {{ bookingStayNights(b) }} 晚
+                  </div>
+
                   <div class="stay-datebox">
                     <div class="stay-date-label">CHECK-OUT</div>
                     <div class="stay-date">{{ bookingStayCheckOutDate(b) || '—' }}</div>
@@ -401,13 +406,32 @@
                   </div>
                 </div>
 
-                <div class="stay-section">
-                  <div class="stay-section-head">
-                    <div class="stay-section-icon">🗺️</div>
-                    <div class="stay-section-title">地點資訊</div>
-                  </div>
-                  <div class="stay-address">{{ bookingStayAddress(b) || '—' }}</div>
+
+                <div class="stay-section-head">
+                  <div class="stay-section-icon">🗺️</div>
+                  <div class="stay-section-title">地點資訊</div>
                 </div>
+
+                <!-- ✅ 地點文字 + 導航按鈕：同一列 -->
+                <div class="stay-address-row">
+                  <div class="stay-address">
+                    {{ bookingStayAddress(b) || '—' }}
+                  </div>
+
+                  <button
+                    class="btn btn-secondary btn-mini stay-nav-btn"
+                    type="button"
+                    @click.stop="openNavigation(bookingStayAddress(b))"
+                    :disabled="!bookingStayAddress(b)"
+                    title="用 Google 地圖導航"
+                  >
+                    📍 導航
+                  </button>
+                </div>
+
+
+
+
 
                 <div class="stay-section">
                   <div class="stay-section-head">
@@ -448,7 +472,7 @@
                   type="button"
                   @click.stop="openBookingEditor(b)"
                 >
-                  ✏️ 編輯資訊
+                  ✏️編輯
                 </button>
               </div>
             </div>
@@ -543,7 +567,7 @@
                 type="button"
                 @click.stop="openBookingEditor(b)"
               >
-                ✏️ 編輯資訊
+                ✏️編輯
               </button>
             </div>
           </div>
@@ -578,7 +602,8 @@
                 <input class="field-input" v-model="bookingEditor.form.code" :disabled="!canWrite" placeholder="例如：BX796" />
               </label>
 
-              <label class="field field-span">
+              <!-- ✅ vendor：住宿不顯示 -->
+              <label class="field field-span" v-if="bookingEditor.form.type !== 'hotel'">
                 <div class="field-label">航空/商家（vendor）</div>
                 <input class="field-input" v-model="bookingEditor.form.vendor" :disabled="!canWrite" placeholder="例如：釜山航空" />
               </label>
@@ -588,14 +613,61 @@
                 <input class="field-input" v-model="bookingEditor.form.title" :disabled="!canWrite" placeholder="例如：APA Hotel 難波站" />
               </label>
 
-              <label class="field">
-                <div class="field-label">日期</div>
-                <input class="field-input" type="date" v-model="bookingEditor.form.date" :disabled="!canWrite" />
+              <!-- ✅ 住宿：地點（卡片會顯示 + 可用來導航） -->
+              <label class="field field-span" v-if="bookingEditor.form.type === 'hotel'">
+                <div class="field-label">住宿地點（地址/飯店名）</div>
+                <input
+                  class="field-input"
+                  v-model="bookingEditor.form.address"
+                  :disabled="!canWrite"
+                  placeholder="例如：APA Hotel Namba / 大阪市中央區..."
+                />
               </label>
+
+              <!-- ✅ 日期欄位：依類型顯示
+                  - 憑證：使用日期
+                  - 住宿：Check-in 日期+時間、Check-out 日期+時間
+                  - 其他：日期
+              -->
+              <template v-if="bookingEditor.form.type === 'voucher'">
+                <label class="field">
+                  <div class="field-label">使用日期</div>
+                  <input class="field-input" type="date" v-model="bookingEditor.form.usageDate" :disabled="!canWrite" />
+                </label>
+              </template>
+
+              <template v-else-if="bookingEditor.form.type === 'hotel'">
+                <label class="field">
+                  <div class="field-label">Check-in 日期</div>
+                  <input class="field-input" type="date" v-model="bookingEditor.form.date" :disabled="!canWrite" />
+                </label>
+
+                <label class="field">
+                  <div class="field-label">Check-in 時間</div>
+                  <input class="field-input" type="time" v-model="bookingEditor.form.checkInTime" :disabled="!canWrite" />
+                </label>
+
+                <label class="field">
+                  <div class="field-label">Check-out 日期</div>
+                  <input class="field-input" type="date" v-model="bookingEditor.form.checkOutDate" :disabled="!canWrite" />
+                </label>
+
+                <label class="field">
+                  <div class="field-label">Check-out 時間</div>
+                  <input class="field-input" type="time" v-model="bookingEditor.form.checkOutTime" :disabled="!canWrite" />
+                </label>
+              </template>
+
+              <template v-else>
+                <label class="field">
+                  <div class="field-label">日期</div>
+                  <input class="field-input" type="date" v-model="bookingEditor.form.date" :disabled="!canWrite" />
+                </label>
+              </template>
 
               <label class="field">
                 <div class="field-label">總價（TWD）</div>
-                <input class="field-input" type="number" v-model.number="bookingEditor.form.priceTwd" :disabled="!canWrite" placeholder="" />
+                <input class="field-input" type="number" v-model.number="bookingEditor.form.priceTwd" :disabled="!canWrite" />
               </label>
 
               <!-- Flight 欄位 -->
@@ -630,6 +702,9 @@
                   <input class="field-input" v-model="bookingEditor.form.aircraft" :disabled="!canWrite" />
                 </label>
               </template>
+
+              <!-- ✅ 行李欄位：整個移除（住宿編輯介面不再出現） -->
+
 
               <label class="field">
                 <div class="field-label">行李（例如 15kg）</div>
@@ -1060,6 +1135,7 @@
                 />
               </label>
 
+              
 
               <label class="field">
                 <div class="field-label">金額</div>
@@ -1180,16 +1256,37 @@
 
 
         <div class="todo">
-          <input type="checkbox" v-model="it.done" @change="togglePrepDone(prepTab, it)" />
-          <span :class="{ done: it.done }">{{ it.text }}</span>
+          <input
+            type="checkbox"
+            v-model="it.done"
+            @change="togglePrepDone(prepTab, it)"
+            :disabled="prepEditMode"
+          />
+
+          <input
+            v-if="prepEditMode"
+            v-model="it.text"
+            class="prep-edit-input"
+            @click.stop
+          />
+
+          <span v-else :class="{ done: it.done }">
+            {{ it.text }}
+          </span>
+          
+
+
+
+
         </div>
+
 
         <button
           class="btn btn-ghost btn-mini"
           type="button"
           @click.stop="openPrepEditor(kind, it)"
         >
-          ✏️
+          ✏️編輯
         </button>
 
         <button class="btn btn-ghost btn-mini" @click="deletePrepItem(prepTab, it)">🗑️</button>
@@ -1740,26 +1837,39 @@ const filteredBookings = computed(() => {
 
   const pickDate = (b) => {
     if (t === "voucher") return b?.usageDate || b?.date || "";
+    // ✅ 住宿：用 check-in 日期（b.date）
+    if (t === "hotel") return b?.date || "";
+    // ✅ 機票/租車：用 b.date
     return b?.date || "";
   };
 
+  const pickTime = (b) => {
+    // ✅ 機票：用起飛時間
+    if (t === "flight") return b?.departTime || "";
+    // ✅ 住宿：用 check-in 時間（沒有就排後面）
+    if (t === "hotel") return b?.checkInTime || "";
+    // ✅ 其他類型：不特別用時間
+    return "";
+  };
+
   return [...list].sort((a, b) => {
-    // 1) 日期：越早越前（憑證使用 usageDate）
+    // 1) 日期：越早越前（憑證優先 usageDate）
     const ad = bookingDateKey(pickDate(a));
     const bd = bookingDateKey(pickDate(b));
     if (ad !== bd) return ad - bd;
 
-    // 2) 同一天：機票用出發時間（越早越前）
-    const at = timeKey(a.departTime);
-    const bt = timeKey(b.departTime);
+    // 2) 同一天：依類型取時間（機票 departTime、住宿 checkInTime）
+    const at = timeKey(pickTime(a));
+    const bt = timeKey(pickTime(b));
     if (at !== bt) return at - bt;
 
-    // 3) createdAt 穩定排序
+    // 3) createdAt 穩定排序（避免同 key 亂跳）
     const ac = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
     const bc = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
     return ac - bc;
   });
 });
+
 
 
 
@@ -3428,6 +3538,7 @@ const bookingEditor = ref({
     vendor: "",
     code: "",
     title: "",
+    address: "",
     from: "",
     to: "",
     departTime: "",
@@ -3436,7 +3547,9 @@ const bookingEditor = ref({
     date: new Date().toISOString().slice(0, 10),
 
     // ✅ 新增：住宿 check-out、憑證使用日期
+    checkInTime: "",
     checkOutDate: "",
+    checkOutTime: "",
     usageDate: "",
 
     baggage: "",
@@ -3472,6 +3585,7 @@ function openBookingEditor(b) {
       vendor: "",
       code: "",
       title: "",
+      address: "",
       from: "",
       to: "",
       departTime: "",
@@ -3479,8 +3593,11 @@ function openBookingEditor(b) {
       duration: "",
       date: today,
 
+      checkInTime: (bookingTab.value === "hotel" ? "15:00" : ""),
       checkOutDate: "",
+      checkOutTime: (bookingTab.value === "hotel" ? "11:00" : ""),
       usageDate: today,
+
 
       baggage: "",
       aircraft: "",
@@ -3502,6 +3619,7 @@ function openBookingEditor(b) {
     vendor: b.vendor || "",
     code: b.code || "",
     title: b.title || "",
+    address: b.address || "",
     from: b.from || "",
     to: b.to || "",
     departTime: b.departTime || "",
@@ -3509,8 +3627,11 @@ function openBookingEditor(b) {
     duration: b.duration || "",
     date: b.date || new Date().toISOString().slice(0, 10),
 
+    checkInTime: b.checkInTime || "",
     checkOutDate: b.checkOutDate || "",
+    checkOutTime: b.checkOutTime || "",
     usageDate: b.usageDate || "",
+
 
     baggage: b.baggage || "",
     aircraft: b.aircraft || "",
@@ -3557,7 +3678,9 @@ async function saveBookingEdit(options = { keepOpen: false }) {
     vendor: String(f.vendor || "").trim(),
     code: String(f.code || "").trim(),
     title: String(f.title || "").trim(),
+    address: String(f.address || "").trim(),
     from: String(f.from || "").trim(),
+
     to: String(f.to || "").trim(),
     departTime: String(f.departTime || "").trim(),
     arriveTime: String(f.arriveTime || "").trim(),
@@ -3566,10 +3689,13 @@ async function saveBookingEdit(options = { keepOpen: false }) {
     // ✅ date 保持相容（憑證：date 同步為 usageDate）
     date: normalizedDate,
     usageDate: type === "voucher" ? String(f.usageDate || "").trim() : "",
+    checkInTime: type === "hotel" ? String(f.checkInTime || "").trim() : "",
     checkOutDate: type === "hotel" ? String(f.checkOutDate || "").trim() : "",
+    checkOutTime: type === "hotel" ? String(f.checkOutTime || "").trim() : "",
 
-    baggage: String(f.baggage || "").trim(),
+    baggage: type === "flight" ? String(f.baggage || "").trim() : "",
     aircraft: String(f.aircraft || "").trim(),
+
     priceTwd: Number.isFinite(Number(f.priceTwd)) ? Number(f.priceTwd) : null,
     purchasedAt: String(f.purchasedAt || "").trim(),
 
@@ -3880,6 +4006,9 @@ async function deleteExpense() {
 }
 
 /* ===================== Prep checklists ===================== */
+// 是否為編輯模式（Prep 用）
+const prepEditMode = ref(false);
+
 const prepTab = ref("todo");
 const prepInput = ref({ todo: "", luggage: "", shopping: "" });
 
@@ -4057,16 +4186,21 @@ function subscribeBookings() {
           vendor: data.vendor || "",
           code: data.code || "",
           title: data.title || "",
+          address: data.address || "",
           from: data.from || "",
           to: data.to || "",
           departTime: data.departTime || "",
           arriveTime: data.arriveTime || "",
           duration: data.duration || "",
 
-          // ✅ 日期欄位
+
+          // ✅ 日期 / 時間欄位
           date: data.date || "",
+          checkInTime: data.checkInTime || "",
           checkOutDate: data.checkOutDate || "",
+          checkOutTime: data.checkOutTime || "",
           usageDate: data.usageDate || "",
+
 
           // flight meta（憑證頁會隱藏顯示，但資料可留著）
           baggage: data.baggage || "",
@@ -4167,6 +4301,22 @@ async function addPrepItem(kind) {
     console.error("新增清單失敗：", e);
     alert("新增失敗（可能是 rules 不允許 create）");
   }
+}
+
+
+async function togglePrepEditMode(kind, list) {
+  // 由「編輯」→「儲存」
+  if (prepEditMode.value) {
+    // 將目前清單內容寫回 Firebase
+    for (const item of list) {
+      await update(
+        ref(db, `trips/${tripId.value}/prep_${kind}/${item.id}`),
+        { text: item.text }
+      );
+    }
+  }
+
+  prepEditMode.value = !prepEditMode.value;
 }
 
 
