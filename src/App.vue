@@ -1264,34 +1264,37 @@
             type="checkbox"
             v-model="it.done"
             @change="togglePrepDone(prepTab, it)"
-            :disabled="prepEditMode"
           />
 
+          <!-- 編輯模式 -->
           <input
             v-if="prepEditMode"
             v-model="it.text"
             class="prep-edit-input"
-            @click.stop
+            @input="recomputePrepDirty(prepTab, sortedPrepItems(prepTab))"
           />
 
-          <span v-else :class="{ done: it.done }">
+
+          <!-- 檢視模式 -->
+          <span
+            v-else
+            :class="{ done: it.done }"
+          >
             {{ it.text }}
           </span>
-          
-
-
-
-
         </div>
+
 
 
         <button
           class="btn btn-ghost btn-mini"
           type="button"
-          @click.stop="openPrepEditor(kind, it)"
+          @click.stop="togglePrepEditMode(prepTab, sortedPrepItems(prepTab))"
         >
-          ✏️編輯
+          {{ prepEditMode ? '儲存' : '✏️' }}
         </button>
+
+
 
         <button class="btn btn-ghost btn-mini" @click="deletePrepItem(prepTab, it)">🗑️</button>
       </div>
@@ -1451,9 +1454,7 @@
                 <div class="backup-title">{{ it.title || '（未命名）' }}</div>
 
                 <div class="backup-pills">
-                  <span class="backup-pill static">
-                    {{ (it.usageDate || '').trim() ? it.usageDate : '（未填使用日）' }}
-                  </span>
+
 
                   <!-- ✅ 有上傳圖片才顯示，點了開圖片 -->
                   <button
@@ -1463,7 +1464,7 @@
                     @click.stop="openSnackPhoto(it)"
                     title="開啟照片"
                   >
-                    圖片
+                    🖼️
                   </button>
                 </div>
               </div>
@@ -1570,10 +1571,7 @@
               </template>
 
               <template v-else-if="backupEditor.kind === 'snacks'">
-                <label class="field">
-                  <div class="field-label">使用日期</div>
-                  <input class="field-input" type="date" v-model="backupEditor.form.usageDate" :disabled="!canWrite" />
-                </label>
+
 
                 <label class="field field-span">
                   <div class="field-label">照片（只允許圖片）</div>
@@ -1623,10 +1621,16 @@
 
 
 
-              <label class="field field-span">
+              <label class="field field-span" v-if="backupEditor.kind !== 'snacks'">
                 <div class="field-label">mapQuery（Google Maps 搜尋字）</div>
-                <input class="field-input" v-model="backupEditor.form.mapQuery" :disabled="!canWrite" placeholder="不填會用名稱/地址當搜尋字" />
+                <input
+                  class="field-input"
+                  v-model="backupEditor.form.mapQuery"
+                  :disabled="!canWrite"
+                  placeholder="不填會用名稱/地址當搜尋字"
+                />
               </label>
+
 
               <label class="field field-span">
                 <div class="field-label">備註</div>
@@ -2106,7 +2110,7 @@ function subscribeBackup(kind) {
           hours: data.hours || "",
 
           // snacks
-          usageDate: data.usageDate || "",
+
           photoUrl: data.photoUrl || "",
           photoPath: data.photoPath || "",
           photoName: data.photoName || "",
@@ -2114,17 +2118,7 @@ function subscribeBackup(kind) {
         };
       });
 
-      // ✅ 零食：用「使用日期」排序（越早越前），沒填的排最後
-      if (kind === "snacks") {
-        items = items.sort((a, b) => {
-          const ad = (a.usageDate || "").trim();
-          const bd = (b.usageDate || "").trim();
-          if (ad && bd) return ad.localeCompare(bd);
-          if (ad && !bd) return -1;
-          if (!ad && bd) return 1;
-          return 0;
-        });
-      }
+
 
       backup.value[kind].items = items;
       backup.value[kind].loading = false;
@@ -2272,10 +2266,16 @@ async function saveBackupEdit(options = { keepOpen: false }) {
   const payload = {
     title,
     note: String(backupEditor.value.form.note || "").trim(),
-    mapQuery: String(backupEditor.value.form.mapQuery || "").trim(),
     order: Date.now(),
     updatedAt: serverTimestamp(),
   };
+
+  // ✅ mapQuery：零食不需要；美食/地點才存
+  if (kind !== "snacks") {
+    payload.mapQuery = String(backupEditor.value.form.mapQuery || "").trim();
+  }
+
+
 
   if (kind === "food") {
     payload.branch = String(backupEditor.value.form.branch || "").trim();
@@ -2285,7 +2285,7 @@ async function saveBackupEdit(options = { keepOpen: false }) {
         ? backupEditor.value.form.queueMins
         : null;
   } else if (kind === "snacks") {
-    payload.usageDate = String(backupEditor.value.form.usageDate || "").trim();
+
     payload.photoUrl = String(backupEditor.value.form.photoUrl || "").trim();
     payload.photoPath = String(backupEditor.value.form.photoPath || "").trim();
     payload.photoName = String(backupEditor.value.form.photoName || "").trim();
@@ -2391,7 +2391,7 @@ async function uploadSnackPhoto() {
     const safeName = `${Date.now()}-${String(file.name || "snack").replace(/[^\w.\-]+/g, "_")}`;
     const path = `trips/${DEFAULT_TRIP_ID}/backup_snacks/${snackId}/${safeName}`;
 
-    const storageRef = ref(storage, path);
+    const storageRef = sRef(storage, path);
     const task = uploadBytesResumable(storageRef, file, {
       contentType: file.type || "image/jpeg",
     });
@@ -2735,6 +2735,14 @@ const eventDrag = ref({
 });
 
 let eventArmTimer = null;
+
+async function togglePrepEdit() {
+  if (prepEditMode.value) {
+    // ⬇️ 這裡是「儲存」
+    await savePrepEditsToFirebase();
+  }
+  prepEditMode.value = !prepEditMode.value;
+}
 
 function armEventDrag(dayId, idx) {
   if (!canWrite.value) return;
@@ -4276,6 +4284,24 @@ async function deleteExpense() {
 /* ===================== Prep checklists ===================== */
 // 是否為編輯模式（Prep 用）
 const prepEditMode = ref(false);
+// ✅ 只有「有修改」才顯示「儲存」
+const prepDirty = ref(false);
+
+// 進入編輯時，記住當下文字（用來判斷是否有改）
+const prepOriginalText = ref(new Map());
+
+function beginPrepEditSnapshot(kind, list) {
+  // kind: todo/luggage/shopping
+  prepOriginalText.value = new Map((list || []).map((it) => [it.id, String(it.text || "")]));
+  prepDirty.value = false;
+}
+
+function recomputePrepDirty(kind, list) {
+  const snap = prepOriginalText.value;
+  prepDirty.value = (list || []).some((it) => String(it.text || "") !== String(snap.get(it.id) || ""));
+}
+
+
 
 const prepTab = ref("todo");
 const prepInput = ref({ todo: "", luggage: "", shopping: "" });
@@ -4573,19 +4599,32 @@ async function addPrepItem(kind) {
 
 
 async function togglePrepEditMode(kind, list) {
+  if (!canWrite.value) return alert("只讀模式無法儲存。請先登入並被加入 members。");
+
   // 由「編輯」→「儲存」
   if (prepEditMode.value) {
-    // 將目前清單內容寫回 Firebase
-    for (const item of list) {
-      await update(
-        ref(db, `trips/${tripId.value}/prep_${kind}/${item.id}`),
-        { text: item.text }
-      );
+    try {
+      const key = prepCollectionKey(kind);
+
+      for (const item of list) {
+        await updateDoc(
+          doc(db, "trips", DEFAULT_TRIP_ID, key, item.id),
+          { text: String(item.text || "").trim(), updatedAt: serverTimestamp() }
+        );
+      }
+
+      alert("儲存成功！");
+    } catch (e) {
+      console.error("儲存準備清單失敗：", e);
+      alert(`儲存失敗：${e?.code || ""} ${e?.message || e}`);
+      return; // 失敗就不要切回檢視模式，避免使用者以為有存到
     }
   }
 
   prepEditMode.value = !prepEditMode.value;
 }
+
+
 
 
 function getPrepOrderValue(it) {
@@ -4638,6 +4677,31 @@ async function togglePrepDone(kind, item) {
 }
 
 
+async function savePrepEditsToFirebase() {
+  if (!canWrite.value) {
+    alert("只讀模式無法儲存");
+    return;
+  }
+
+  const col =
+    prepTab.value === "todo"
+      ? "prep_todo"
+      : prepTab.value === "luggage"
+      ? "prep_luggage"
+      : "prep_shopping";
+
+  const batch = writeBatch(db);
+
+  prepItems.value.forEach((it) => {
+    const ref = doc(db, "trips", tripId.value, col, it.id);
+    batch.update(ref, {
+      text: it.text,
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
+}
 
 
 async function deletePrepItem(kind, item) {
