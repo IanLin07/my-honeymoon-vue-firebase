@@ -541,9 +541,24 @@ body{
   color:inherit;
 }
 .todo{ display:flex; gap:10px; align-items:center; flex:1; min-width:0; font-weight:900; }
-.todo span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.todo span.done{ text-decoration:line-through; opacity:.55; }
-.todo span { cursor: default; user-select: none; }
+/* ✅ Prep：文字在手機自動換行，不再超出畫面 */
+.todo span{
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  cursor: default;
+  user-select: none;
+}
+
+/* 保留完成樣式 */
+.todo span.done{
+  text-decoration: line-through;
+  opacity: .55;
+}
+
 .todo input[type="checkbox"] { cursor: pointer; }
 /* =============== Modal =============== */
 .modal-overlay{
@@ -844,6 +859,17 @@ body{
   box-shadow: 0 10px 18px rgba(0,0,0,.06);
 }
 
+/* ✅ Booking：機票/住宿/租車/憑證 置頂（滑動時黏住） */
+.booking-sticky{
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  background: #f7f4ee; /* 與頁面底色一致，避免透出 */
+  padding: 8px 0 10px;
+  margin: 0 0 8px;
+  box-shadow: 0 10px 18px rgba(0,0,0,.06);
+}
+
 
 /* =============== Tools: FX converter =============== */
 .fx-row{
@@ -954,11 +980,18 @@ body{
   cursor: pointer;
 }
 
+/* ✅ Backup：手機不爆版（標題與按鈕允許換行） */
 .backup-head{
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   gap:12px;
+  flex-wrap:wrap;
 }
+
+.backup-pills{
+  max-width: 100%;
+}
+
 
 .backup-title{
   flex: 1;

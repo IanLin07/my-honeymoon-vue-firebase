@@ -329,13 +329,17 @@
       <!-- =============== 預定頁（任何人可看；登入且成員才可新增/編輯/刪除） =============== -->
       <section v-else-if="currentPage === 'booking'" class="page">
 
-        <!-- 上方分類：機票 / 住宿 / 租車 / 憑證 -->
-        <div class="segmented segmented-4">
-          <button class="seg-btn" :class="{ active: bookingTab === 'flight' }" @click="bookingTab='flight'" type="button">✈️ 機票</button>
-          <button class="seg-btn" :class="{ active: bookingTab === 'hotel' }"  @click="bookingTab='hotel'"  type="button">🏨 住宿</button>
-          <button class="seg-btn" :class="{ active: bookingTab === 'car' }"    @click="bookingTab='car'"    type="button">🚗 租車</button>
-          <button class="seg-btn" :class="{ active: bookingTab === 'voucher' }"@click="bookingTab='voucher'"type="button">🎫 憑證</button>
+
+        <!-- 上方分類：機票 / 住宿 / 租車 / 憑證（手機下滑置頂） -->
+        <div class="booking-sticky">
+          <div class="segmented segmented-4">
+            <button class="seg-btn" :class="{ active: bookingTab === 'flight' }" @click="bookingTab='flight'" type="button">✈️ 機票</button>
+            <button class="seg-btn" :class="{ active: bookingTab === 'hotel' }"  @click="bookingTab='hotel'"  type="button">🏨 住宿</button>
+            <button class="seg-btn" :class="{ active: bookingTab === 'car' }"    @click="bookingTab='car'"    type="button">🚗 租車</button>
+            <button class="seg-btn" :class="{ active: bookingTab === 'voucher' }"@click="bookingTab='voucher'"type="button">🎫 憑證</button>
+          </div>
         </div>
+
 
         <div class="card">
           <div class="card-header-row">
@@ -1342,17 +1346,23 @@
 
         </div>
       </section>
-      <!-- =============== 備用頁（美食 / 地點） =============== -->
+
 <!-- =============== 備用頁（美食 / 地點） =============== -->
       <section v-else-if="currentPage === 'backup'" class="page">
-        <div class="segmented">
+        <div class="segmented segmented-3">
           <button class="seg-btn" :class="{ active: backupTab === 'food' }" @click="backupTab='food'" type="button">
             🍜 美食
           </button>
+
+          <button class="seg-btn" :class="{ active: backupTab === 'snacks' }" @click="backupTab='snacks'" type="button">
+            🍫 零食
+          </button>
+
           <button class="seg-btn" :class="{ active: backupTab === 'places' }" @click="backupTab='places'" type="button">
             📍 地點
           </button>
         </div>
+
 
         <!-- ===== 美食 ===== -->
         <div v-if="backupTab === 'food'" class="card">
@@ -1415,6 +1425,56 @@
 
           </div>
         </div>
+
+        <!-- ===== 零食 ===== -->
+        <div v-else-if="backupTab === 'snacks'" class="card">
+          <div class="row-right" style="margin-top:10px;">
+            <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('snacks', null)">新增</button>
+            <div v-else class="readonly-hint">只讀模式：登入且在 members 才能新增/編輯。</div>
+          </div>
+
+          <div v-if="backup.snacks.loading" class="empty-state">讀取中...</div>
+          <div v-else-if="backup.snacks.error" class="empty-state">讀取失敗：{{ backup.snacks.error }}</div>
+
+          <div v-else-if="!backup.snacks.items.length" class="empty-state">
+            尚未建立零食口袋名單。
+          </div>
+
+          <div v-else class="list">
+            <div
+              v-for="it in backup.snacks.items"
+              :key="it.id"
+              class="backup-card"
+              @click="openBackupEditor('snacks', it)"
+            >
+              <div class="backup-head">
+                <div class="backup-title">{{ it.title || '（未命名）' }}</div>
+
+                <div class="backup-pills">
+                  <span class="backup-pill static">
+                    {{ (it.usageDate || '').trim() ? it.usageDate : '（未填使用日）' }}
+                  </span>
+
+                  <!-- ✅ 有上傳圖片才顯示，點了開圖片 -->
+                  <button
+                    v-if="it.photoUrl"
+                    class="backup-pill"
+                    type="button"
+                    @click.stop="openSnackPhoto(it)"
+                    title="開啟照片"
+                  >
+                    圖片
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        
+
+
+
 
         <!-- ===== 地點 ===== -->
         <div v-else class="card">
@@ -1481,7 +1541,8 @@
           <div class="modal">
             <div class="modal-title">🧷 備用清單</div>
             <div class="modal-subtitle">
-              {{ backupEditor.kind === 'food' ? '美食' : '地點' }}：新增/編輯/刪除，並可用 mapQuery 一鍵導航。
+              {{ backupEditor.kind === 'food' ? '美食' : (backupEditor.kind === 'snacks' ? '零食' : '地點') }}：新增/編輯/刪除，並可用 mapQuery 一鍵導航。
+
               <span v-if="!canWrite" style="opacity:.75;">（目前只讀）</span>
             </div>
 
@@ -1508,6 +1569,45 @@
                 </label>
               </template>
 
+              <template v-else-if="backupEditor.kind === 'snacks'">
+                <label class="field">
+                  <div class="field-label">使用日期</div>
+                  <input class="field-input" type="date" v-model="backupEditor.form.usageDate" :disabled="!canWrite" />
+                </label>
+
+                <label class="field field-span">
+                  <div class="field-label">照片（只允許圖片）</div>
+
+                  <input
+                    class="field-input"
+                    type="file"
+                    accept="image/*"
+                    :disabled="!canWrite"
+                    @change="onSnackPhotoFileChange"
+                  />
+
+                  <div style="display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap;">
+                    <button
+                      class="btn btn-secondary btn-mini"
+                      type="button"
+                      :disabled="!canWrite || snackPhotoUploading || !snackPhotoFile"
+                      @click="uploadSnackPhoto"
+                    >
+                      {{ snackPhotoUploading ? `上傳中 ${snackPhotoProgress}%` : "上傳照片" }}
+                    </button>
+
+                    <button
+                      v-if="backupEditor.form.photoUrl"
+                      class="btn btn-secondary btn-mini"
+                      type="button"
+                      @click="openSnackPhoto({ photoUrl: backupEditor.form.photoUrl })"
+                    >
+                      預覽
+                    </button>
+                  </div>
+                </label>
+              </template>
+
               <template v-else>
                 <label class="field field-span">
                   <div class="field-label">地址</div>
@@ -1519,6 +1619,9 @@
                   <input class="field-input" v-model="backupEditor.form.hours" :disabled="!canWrite" placeholder="例如：06:00–18:00" />
                 </label>
               </template>
+
+
+
 
               <label class="field field-span">
                 <div class="field-label">mapQuery（Google Maps 搜尋字）</div>
@@ -1949,19 +2052,26 @@ function bookingStayPerPersonPerNight(b) {
 }
 
 
-const backupTab = ref("food"); // food | places
+const backupTab = ref("food"); // food | snacks | places
 /* ===================== Backup（備用：美食/地點） ===================== */
 const backup = ref({
   food: { items: [], loading: false, error: "" },
+  snacks: { items: [], loading: false, error: "" },
   places: { items: [], loading: false, error: "" },
 });
 
+
 let unsubBackupFood = null;
+let unsubBackupSnacks = null;
 let unsubBackupPlaces = null;
 
+
 function backupCollectionKey(kind) {
-  return kind === "food" ? "backup_food" : "backup_places";
+  if (kind === "food") return "backup_food";
+  if (kind === "snacks") return "backup_snacks";
+  return "backup_places";
 }
+
 
 function subscribeBackup(kind) {
   const key = backupCollectionKey(kind);
@@ -1969,12 +2079,13 @@ function subscribeBackup(kind) {
   backup.value[kind].loading = true;
   backup.value[kind].error = "";
 
+  // 先用 createdAt 拉資料（穩定、避免要求你建 composite index）
   const qy = query(collection(db, "trips", DEFAULT_TRIP_ID, key), orderBy("createdAt", "desc"));
 
   const unsub = onSnapshot(
     qy,
     (snap) => {
-      backup.value[kind].items = snap.docs.map((d) => {
+      let items = snap.docs.map((d) => {
         const data = d.data() || {};
         return {
           id: d.id,
@@ -1988,14 +2099,34 @@ function subscribeBackup(kind) {
           // food
           branch: data.branch || "",
           mustEat: data.mustEat || "",
-          queueMins: (typeof data.queueMins === "number") ? data.queueMins : null,
+          queueMins: typeof data.queueMins === "number" ? data.queueMins : null,
 
           // places
           address: data.address || "",
           hours: data.hours || "",
+
+          // snacks
+          usageDate: data.usageDate || "",
+          photoUrl: data.photoUrl || "",
+          photoPath: data.photoPath || "",
+          photoName: data.photoName || "",
+          photoType: data.photoType || "",
         };
       });
 
+      // ✅ 零食：用「使用日期」排序（越早越前），沒填的排最後
+      if (kind === "snacks") {
+        items = items.sort((a, b) => {
+          const ad = (a.usageDate || "").trim();
+          const bd = (b.usageDate || "").trim();
+          if (ad && bd) return ad.localeCompare(bd);
+          if (ad && !bd) return -1;
+          if (!ad && bd) return 1;
+          return 0;
+        });
+      }
+
+      backup.value[kind].items = items;
       backup.value[kind].loading = false;
     },
     (err) => {
@@ -2007,22 +2138,32 @@ function subscribeBackup(kind) {
   );
 
   if (kind === "food") unsubBackupFood = unsub;
+  if (kind === "snacks") unsubBackupSnacks = unsub;
   if (kind === "places") unsubBackupPlaces = unsub;
 }
 
+
 function subscribeBackupAll() {
   if (unsubBackupFood) unsubBackupFood();
+  if (unsubBackupSnacks) unsubBackupSnacks();
   if (unsubBackupPlaces) unsubBackupPlaces();
+
   subscribeBackup("food");
+  subscribeBackup("snacks");
   subscribeBackup("places");
 }
 
+
 function unsubscribeBackupAll() {
   if (unsubBackupFood) unsubBackupFood();
+  if (unsubBackupSnacks) unsubBackupSnacks();
   if (unsubBackupPlaces) unsubBackupPlaces();
+
   unsubBackupFood = null;
+  unsubBackupSnacks = null;
   unsubBackupPlaces = null;
 }
+
 
 /* ===== Backup editor modal ===== */
 const backupEditor = ref({
@@ -2040,11 +2181,21 @@ const backupEditor = ref({
     mustEat: "",
     queueMins: null,
 
+    // snacks
+    usageDate: "",
+    photoUrl: "",
+    photoPath: "",
+    photoName: "",
+    photoType: "",
+
     // places
     address: "",
     hours: "",
   },
+
 });
+
+
 
 function openBackupEditor(kind, itemOrNull) {
   backupEditor.value.open = true;
@@ -2060,9 +2211,21 @@ function openBackupEditor(kind, itemOrNull) {
       branch: "",
       mustEat: "",
       queueMins: null,
+
+      usageDate: "",
+      photoUrl: "",
+      photoPath: "",
+      photoName: "",
+      photoType: "",
+
       address: "",
       hours: "",
     };
+
+snackPhotoFile.value = null;
+snackPhotoProgress.value = 0;
+snackPhotoUploading.value = false;
+
     return;
   }
 
@@ -2075,18 +2238,29 @@ function openBackupEditor(kind, itemOrNull) {
 
     branch: itemOrNull.branch || "",
     mustEat: itemOrNull.mustEat || "",
-    queueMins: (typeof itemOrNull.queueMins === "number") ? itemOrNull.queueMins : null,
+    queueMins: typeof itemOrNull.queueMins === "number" ? itemOrNull.queueMins : null,
+
+    usageDate: itemOrNull.usageDate || "",
+    photoUrl: itemOrNull.photoUrl || "",
+    photoPath: itemOrNull.photoPath || "",
+    photoName: itemOrNull.photoName || "",
+    photoType: itemOrNull.photoType || "",
 
     address: itemOrNull.address || "",
     hours: itemOrNull.hours || "",
   };
+
+snackPhotoFile.value = null;
+snackPhotoProgress.value = 0;
+snackPhotoUploading.value = false;
+
 }
 
 function closeBackupEditor() {
   backupEditor.value.open = false;
 }
 
-async function saveBackupEdit() {
+async function saveBackupEdit(options = { keepOpen: false }) {
   if (!canWrite.value) return alert("只讀模式無法儲存：請先登入並被加入 members。");
 
   const kind = backupEditor.value.kind;
@@ -2101,9 +2275,6 @@ async function saveBackupEdit() {
     mapQuery: String(backupEditor.value.form.mapQuery || "").trim(),
     order: Date.now(),
     updatedAt: serverTimestamp(),
-    checkOutDate: f.checkOutDate || "",
-    usageDate: f.usageDate || "",
-
   };
 
   if (kind === "food") {
@@ -2113,6 +2284,12 @@ async function saveBackupEdit() {
       typeof backupEditor.value.form.queueMins === "number"
         ? backupEditor.value.form.queueMins
         : null;
+  } else if (kind === "snacks") {
+    payload.usageDate = String(backupEditor.value.form.usageDate || "").trim();
+    payload.photoUrl = String(backupEditor.value.form.photoUrl || "").trim();
+    payload.photoPath = String(backupEditor.value.form.photoPath || "").trim();
+    payload.photoName = String(backupEditor.value.form.photoName || "").trim();
+    payload.photoType = String(backupEditor.value.form.photoType || "").trim();
   } else {
     payload.address = String(backupEditor.value.form.address || "").trim();
     payload.hours = String(backupEditor.value.form.hours || "").trim();
@@ -2121,20 +2298,28 @@ async function saveBackupEdit() {
   try {
     if (backupEditor.value.isEdit && backupEditor.value.id) {
       await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, backupEditor.value.id), payload);
+      if (!options.keepOpen) closeBackupEditor();
+      return backupEditor.value.id;
     } else {
-      await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, key), {
+      const refDoc = await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, key), {
         ...payload,
         createdAt: serverTimestamp(),
       });
-    }
 
-    closeBackupEditor();
+      // ✅ 讓「新增後立刻可上傳照片」：把狀態切到 edit
+      backupEditor.value.isEdit = true;
+      backupEditor.value.id = refDoc.id;
+
+      if (!options.keepOpen) closeBackupEditor();
+      return refDoc.id;
+    }
   } catch (e) {
     console.error("儲存 backup 失敗：", e);
     alert(`儲存失敗：${e?.code || ""} ${e?.message || e}`);
+    return "";
   }
-
 }
+
 
 async function deleteBackupItem() {
   if (!canWrite.value) return alert("只讀模式無法刪除：請先登入並被加入 members。");
@@ -2167,6 +2352,89 @@ function scrollToTopNow() {
   const main = document.querySelector(".app-main");
   if (main) main.scrollTop = 0;
 }
+
+
+/* ===== Snacks photo upload ===== */
+const snackPhotoFile = ref(null);
+const snackPhotoUploading = ref(false);
+const snackPhotoProgress = ref(0);
+
+function onSnackPhotoFileChange(e) {
+  const f = e?.target?.files?.[0] || null;
+  snackPhotoFile.value = f;
+  snackPhotoProgress.value = 0;
+}
+
+function openSnackPhoto(it) {
+  const url = it?.photoUrl || "";
+  if (!url) return;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+async function uploadSnackPhoto() {
+  if (!canWrite.value) return alert("只讀模式無法上傳：請先登入並被加入 members。");
+  if (backupEditor.value.kind !== "snacks") return;
+  if (!snackPhotoFile.value) return alert("請先選擇圖片檔案。");
+
+  snackPhotoUploading.value = true;
+  snackPhotoProgress.value = 0;
+
+  try {
+    // ✅ 沒有 id 就先存一筆（keepOpen=true，避免 modal 關掉）
+    let snackId = backupEditor.value.id;
+    if (!snackId) {
+      snackId = await saveBackupEdit({ keepOpen: true });
+      if (!snackId) throw new Error("建立零食資料失敗，無法上傳照片。");
+    }
+
+    const file = snackPhotoFile.value;
+    const safeName = `${Date.now()}-${String(file.name || "snack").replace(/[^\w.\-]+/g, "_")}`;
+    const path = `trips/${DEFAULT_TRIP_ID}/backup_snacks/${snackId}/${safeName}`;
+
+    const storageRef = ref(storage, path);
+    const task = uploadBytesResumable(storageRef, file, {
+      contentType: file.type || "image/jpeg",
+    });
+
+    await new Promise((resolve, reject) => {
+      task.on(
+        "state_changed",
+        (snap) => {
+          const p = snap.totalBytes ? Math.round((snap.bytesTransferred / snap.totalBytes) * 100) : 0;
+          snackPhotoProgress.value = p;
+        },
+        reject,
+        resolve
+      );
+    });
+
+    const url = await getDownloadURL(task.snapshot.ref);
+
+    // ✅ 寫回 Firestore
+    await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, "backup_snacks", snackId), {
+      photoUrl: url,
+      photoPath: path,
+      photoName: safeName,
+      photoType: file.type || "",
+      updatedAt: serverTimestamp(),
+    });
+
+    // ✅ 更新 modal 畫面
+    backupEditor.value.form.photoUrl = url;
+    backupEditor.value.form.photoPath = path;
+    backupEditor.value.form.photoName = safeName;
+    backupEditor.value.form.photoType = file.type || "";
+
+    snackPhotoFile.value = null;
+    alert("照片上傳成功 ✅");
+  } catch (e) {
+    console.error("零食照片上傳失敗：", e);
+    alert(`上傳失敗：${e?.code || ""} ${e?.message || e}`);
+  } finally {
+    snackPhotoUploading.value = false;
+  }
+}
+
 
 
 const VALID_PAGES = new Set(["itinerary", "booking", "accounting", "prep", "tools", "backup"]);
