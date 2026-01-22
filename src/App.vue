@@ -146,17 +146,10 @@
           </div>
 
           <div v-for="(event, idx) in day.events" :key="idx" class="event-item">
-            <!-- 左側：時間樣式（獨立於卡片） -->
-            <div class="time-rail" aria-hidden="true">
-              <div class="time-text">{{ event.time }}</div>
-              <div class="time-railbar">
-                <div class="time-dot"></div>
-                <div v-if="idx !== day.events.length - 1" class="time-line"></div>
-              </div>
+            <!-- ✅ 時間：移到卡片上方（不再有時間軸線條） -->
+            <div class="event-time-top">{{ event.time }}</div>
 
-            </div>
-
-            <!-- 右側：卡片 + 筆記（同寬） -->
+            <!-- ✅ 卡片 + 筆記（同寬、滿版） -->
             <div class="event-stack">
               <div
                 class="event-card"
@@ -238,6 +231,7 @@
               </div>
             </div>
           </div>
+
 
 
           <div v-if="!day.events || day.events.length === 0" class="empty-state">
@@ -327,7 +321,13 @@
       </section>
 
       <!-- =============== 預定頁（任何人可看；登入且成員才可新增/編輯/刪除） =============== -->
-      <section v-else-if="currentPage === 'booking'" class="page">
+      <section
+        v-else-if="currentPage === 'booking'"
+        class="page"
+        @touchstart="onSubSwipeStart($event)"
+        @touchend="onBookingSwipeEnd($event)"
+      >
+
 
 
         <!-- 上方分類：機票 / 住宿 / 租車 / 憑證（手機下滑置頂） -->
@@ -540,12 +540,12 @@
               <!-- ✅ baggage / aircraft：只有機票顯示 -->
               <div class="bk2-meta" v-if="b.type === 'flight'">
                 <div class="bk2-meta-item">
-                  <div class="bk2-meta-label">BAGGAGE</div>
+                  <div class="bk2-meta-label">行李</div>
                   <div class="bk2-meta-value">{{ b.baggage || "—" }}</div>
                 </div>
                 <div class="bk2-meta-divider"></div>
                 <div class="bk2-meta-item">
-                  <div class="bk2-meta-label">AIRCRAFT</div>
+                  <div class="bk2-meta-label">航班號碼</div>
                   <div class="bk2-meta-value">{{ b.aircraft || "—" }}</div>
                 </div>
               </div>
@@ -553,14 +553,14 @@
 
               <div class="bk2-bottom">
                 <div class="bk2-box">
-                  <div class="bk2-box-label">PRICE & TYPE</div>
+                  <div class="bk2-box-label">價格</div>
                   <div class="bk2-box-value">
                     {{ b.priceTwd ? `NT$${formatNumber(b.priceTwd)}` : "—" }}
                   </div>
                 </div>
 
                 <div class="bk2-box">
-                  <div class="bk2-box-label">PURCHASED</div>
+                  <div class="bk2-box-label">購買日期</div>
                   <div class="bk2-box-value">{{ b.purchasedAt || "—" }}</div>
                 </div>
               </div>
@@ -710,15 +710,77 @@
               <!-- ✅ 行李欄位：整個移除（住宿編輯介面不再出現） -->
 
 
-              <label class="field">
+              <label class="field" v-if="bookingEditor.form.type === 'flight'">
                 <div class="field-label">行李（例如 15kg）</div>
                 <input class="field-input" v-model="bookingEditor.form.baggage" :disabled="!canWrite" />
               </label>
+
 
               <label class="field">
                 <div class="field-label">購買日（YYYY/MM/DD）</div>
                 <input class="field-input" v-model="bookingEditor.form.purchasedAt" :disabled="!canWrite" placeholder="例如：2025/11/14" />
               </label>
+            </div>
+
+
+            <!-- ✅ 住宿封面上傳（只在住宿類型顯示） -->
+            <div v-if="bookingEditor.form.type === 'hotel'" class="voucher-uploader" style="margin-top:12px;">
+              <div class="field-label" style="font-weight:900;">住宿封面照片</div>
+
+              <div class="voucher-row">
+                <!-- 原生 input 隱藏，避免「未選擇任何檔案」 -->
+                <input
+                  id="bookingCoverFileInput"
+                  class="voucher-file-hidden"
+                  type="file"
+                  accept="image/*"
+                  @change="onBookingCoverFileChange"
+                  :disabled="!canWrite || bookingCoverUploading"
+                />
+
+                <label
+                  class="btn btn-secondary btn-mini"
+                  :class="{ 'is-disabled': (!canWrite || bookingCoverUploading) }"
+                  :for="(!canWrite || bookingCoverUploading) ? null : 'bookingCoverFileInput'"
+                >
+                  選擇照片
+                </label>
+
+                <div class="voucher-file-pill">
+                  {{ bookingCoverFileName ? ('已選擇：' + bookingCoverFileName) : '' }}
+                </div>
+
+                <button
+                  class="btn btn-secondary btn-mini"
+                  type="button"
+                  @click.stop.prevent="uploadBookingCover"
+                  :disabled="!canWrite || bookingCoverUploading || !bookingCoverFile"
+                >
+                  {{ bookingCoverUploading ? `上傳中... ${bookingCoverProgress}%` : "上傳" }}
+                </button>
+
+                <button
+                  v-if="bookingCoverUploading"
+                  class="btn btn-ghost btn-mini"
+                  type="button"
+                  @click.stop.prevent="cancelBookingCoverUpload"
+                >
+                  取消
+                </button>
+
+                <button
+                  v-if="bookingEditor.form.coverUrl"
+                  class="btn btn-ghost btn-mini"
+                  type="button"
+                  @click.stop="window.open(bookingEditor.form.coverUrl, '_blank')"
+                >
+                  開啟
+                </button>
+              </div>
+
+              <div v-if="bookingEditor.form.coverName" class="readonly-hint" style="margin-top:6px;">
+                目前封面：{{ bookingEditor.form.coverName }}
+              </div>
             </div>
 
 
@@ -802,9 +864,11 @@
             <div class="row-right">
               <button class="btn btn-secondary" @click="closeBookingEditor">關閉</button>
 
-              <button class="btn btn-primary" @click="saveBookingEdit" :disabled="!canWrite">
+              <button class="btn btn-primary" @click="saveBookingEdit" :disabled="!canWrite || isAnyUploading">
                 儲存
               </button>
+
+
 
               <button class="btn btn-danger" v-if="bookingEditor.isEdit" @click="deleteBooking" :disabled="!canWrite">
                 刪除
@@ -822,7 +886,13 @@
 
 
       <!-- =============== 記帳頁（未登入＝只看明細；登入且成員＝可記帳/編輯） =============== -->
-      <section v-else-if="currentPage === 'accounting'" class="page">
+      <section
+        v-else-if="currentPage === 'accounting'"
+        class="page"
+        @touchstart="onSubSwipeStart($event)"
+        @touchend="onAccountingSwipeEnd($event)"
+      >
+
         <!-- 分段切換：記帳 / 明細 -->
         <div class="segmented">
           <button
@@ -1218,92 +1288,122 @@
       </section>
 
       <!-- =============== 準備頁（任何人可看；登入且成員才可新增/勾選/刪除） =============== -->
-      <section v-else-if="currentPage === 'prep'" class="page">
-
-
-  <div class="prep-sticky">
-    <div class="segmented segmented-3">
-      <button class="seg-btn" :class="{ active: prepTab === 'todo' }" @click="prepTab='todo'">✅ 待辦</button>
-      <button class="seg-btn" :class="{ active: prepTab === 'luggage' }" @click="prepTab='luggage'">🧳 行李</button>
-      <button class="seg-btn" :class="{ active: prepTab === 'shopping' }" @click="prepTab='shopping'">🛍️ 購物</button>
-    </div>
-  </div>
-
-
-  <!-- 共用清單 -->
-  <div class="card">
-    <div class="inline-add">
-      <input
-        class="field-input"
-        v-model="prepInput[prepTab]"
-        :placeholder="`新增${prepTabLabel}`"
-        :disabled="!canWrite"
-      />
-      <button class="btn btn-primary" @click="addPrepItem(prepTab)" :disabled="!canWrite">
-        新增
-      </button>
-    </div>
-
-    <div class="list" v-if="prep[prepTab].items.length">
-      <div
-        class="list-item"
-        v-for="it in sortedPrepItems(prepTab)"
-        :key="it.id"
-        :draggable="canWrite && prepDrag.armedId === it.id"
-        :class="{ dragging: prepDrag.draggingId === it.id }"
-        @dragstart="onPrepDragStart(prepTab, it, $event)"
-        @dragover="onPrepDragOver(prepTab, it, $event)"
-        @drop="onPrepDrop(prepTab, it, $event)"
-        @dragend="onPrepDragEnd"
+      <section
+        v-else-if="currentPage === 'prep'"
+        class="page"
+        @touchstart="onSubSwipeStart($event)"
+        @touchend="onPrepSwipeEnd($event)"
       >
-        <!-- ✅ 只能長按握把才可拖曳 -->
 
 
-        <div class="todo">
-          <input
-            type="checkbox"
-            v-model="it.done"
-            @change="togglePrepDone(prepTab, it)"
-          />
 
-          <!-- 編輯模式 -->
-          <input
-            v-if="prepEditMode"
-            v-model="it.text"
-            class="prep-edit-input"
-            @input="recomputePrepDirty(prepTab, sortedPrepItems(prepTab))"
-          />
+      <div class="prep-sticky">
+        <div class="segmented segmented-3 backup-sticky">
 
-
-          <!-- 檢視模式 -->
-          <span
-            v-else
-            :class="{ done: it.done }"
-          >
-            {{ it.text }}
-          </span>
+          <button class="seg-btn" :class="{ active: prepTab === 'todo' }" @click="prepTab='todo'">✅ 待辦</button>
+          <button class="seg-btn" :class="{ active: prepTab === 'luggage' }" @click="prepTab='luggage'">🧳 行李</button>
+          <button class="seg-btn" :class="{ active: prepTab === 'shopping' }" @click="prepTab='shopping'">🛍️ 購物</button>
         </div>
-
-
-
-        <button
-          class="btn btn-ghost btn-mini"
-          type="button"
-          @click.stop="togglePrepEditMode(prepTab, sortedPrepItems(prepTab))"
-        >
-          {{ prepEditMode ? '儲存' : '✏️' }}
-        </button>
-
-
-
-        <button class="btn btn-ghost btn-mini" @click="deletePrepItem(prepTab, it)">🗑️</button>
       </div>
 
-    </div>
 
-    <div v-else class="empty-state">尚無項目</div>
-  </div>
-</section>
+      <!-- 共用清單 -->
+      <div class="card">
+        <div class="inline-add">
+          <input
+            class="field-input"
+            v-model="prepInput[prepTab]"
+            :placeholder="`新增${prepTabLabel}`"
+            :disabled="!canWrite"
+          />
+          <button class="btn btn-primary" @click="addPrepItem(prepTab)" :disabled="!canWrite">
+            新增
+          </button>
+        </div>
+
+        <div class="list" v-if="prep[prepTab].items.length">
+          <div
+            class="list-item"
+            v-for="it in sortedPrepItems(prepTab)"
+            :key="it.id"
+            :draggable="canWrite && prepDrag.armedId === it.id"
+            :class="{ dragging: prepDrag.draggingId === it.id }"
+            @dragstart="onPrepDragStart(prepTab, it, $event)"
+            @dragover="onPrepDragOver(prepTab, it, $event)"
+            @drop="onPrepDrop(prepTab, it, $event)"
+            @dragend="onPrepDragEnd"
+            @click="openPrepEditor(prepTab, it, $event)"
+          >
+            <div class="todo">
+              <input
+                type="checkbox"
+                v-model="it.done"
+                @click.stop
+                @change="togglePrepDone(prepTab, it)"
+              />
+
+              <div class="prep-textwrap">
+                <div class="prep-text" :class="{ done: it.done }">{{ it.text }}</div>
+                <div v-if="(it.note || '').trim()" class="prep-note">{{ it.note }}</div>
+              </div>
+            </div>
+          </div>
+
+
+
+        </div>
+
+        <div v-else class="empty-state">尚無項目</div>
+      </div>
+
+
+      <!-- ✅ 準備頁：點選項目後的編輯/刪除/儲存 Modal -->
+      <div v-if="prepEditor.open" class="modal-overlay" @click.self="closePrepEditor">
+        <div class="modal">
+          <div class="modal-title">✏️ 編輯{{ prepTabLabelMap[prepEditor.kind] }}</div>
+          <div class="modal-subtitle">
+            點選項目後在這裡修改；列表上不再顯示獨立的編輯/刪除按鈕。
+            <span v-if="!canWrite" style="opacity:.75;">（目前只讀）</span>
+          </div>
+
+          <div class="form-grid" style="margin-top:10px;">
+            <label class="field field-span">
+              <div class="field-label">選項文字</div>
+              <input class="field-input" v-model="prepEditor.form.text" :disabled="!canWrite" />
+            </label>
+
+            <label class="field field-span">
+              <div class="field-label">備註</div>
+              <textarea class="field-input" rows="3" v-model="prepEditor.form.note" :disabled="!canWrite"></textarea>
+            </label>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn btn-ghost" type="button" @click="closePrepEditor">取消</button>
+
+            <button
+              v-if="canWrite"
+              class="btn btn-danger"
+              type="button"
+              @click="deletePrepFromEditor"
+            >
+              刪除
+            </button>
+
+            <button
+              class="btn btn-primary"
+              type="button"
+              @click="savePrepEditor"
+              :disabled="!canWrite"
+            >
+              儲存
+            </button>
+          </div>
+        </div>
+      </div>
+
+      
+      </section>
 
 
       <!-- =============== 工具頁：即時匯率換算器（TWD / JPY） =============== -->
@@ -1351,8 +1451,15 @@
       </section>
 
 <!-- =============== 備用頁（美食 / 地點） =============== -->
-      <section v-else-if="currentPage === 'backup'" class="page">
-        <div class="segmented segmented-3">
+      <section
+        v-else-if="currentPage === 'backup'"
+        class="page"
+        @touchstart="onSubSwipeStart($event)"
+        @touchend="onBackupSwipeEnd($event)"
+      >
+
+        <div class="segmented segmented-3 backup-sticky">
+
           <button class="seg-btn" :class="{ active: backupTab === 'food' }" @click="backupTab='food'" type="button">
             🍜 美食
           </button>
@@ -1395,22 +1502,15 @@
                 <div class="backup-title">{{ it.title || '（未命名）' }}</div>
 
                 <div class="backup-pills">
-                  <span class="backup-pill static">
-                    {{ (it.branch || '').trim() ? it.branch : '（未填分店）' }}
-                  </span>
-
-                  <button class="btn btn-ghost btn-mini" type="button" @click.stop="openBackupEditor('food', it)">
-                    🏞️
-                  </button>
-
                   <button
-                    class="btn btn-ghost btn-mini"
+                    class="btn btn-secondary btn-mini"
                     type="button"
                     @click.stop="openNavigation(it.mapQuery || it.title)"
                   >
                     📍
                   </button>
                 </div>
+
               </div>
 
               <div class="backup-field">
@@ -1454,12 +1554,10 @@
                 <div class="backup-title">{{ it.title || '（未命名）' }}</div>
 
                 <div class="backup-pills">
-
-
-                  <!-- ✅ 有上傳圖片才顯示，點了開圖片 -->
+                  <!-- ✅ 有上傳圖片才顯示，點了開圖片（風格同「行程卡片按鈕」） -->
                   <button
                     v-if="it.photoUrl"
-                    class="backup-pill"
+                    class="btn btn-secondary btn-mini"
                     type="button"
                     @click.stop="openSnackPhoto(it)"
                     title="開啟照片"
@@ -1468,6 +1566,12 @@
                   </button>
                 </div>
               </div>
+
+              <!-- ✅ 備註：顯示在標題下方，灰色小字，自動換行 -->
+              <div v-if="(it.note || '').trim()" class="backup-note">
+                {{ it.note }}
+              </div>
+
             </div>
           </div>
         </div>
@@ -1505,28 +1609,23 @@
                 <div class="backup-title">{{ it.title || '（未命名）' }}</div>
 
                 <div class="backup-pills">
-                  <span class="backup-pill static">
-                    {{ (it.hours || '').trim() ? it.hours : '（未填時間）' }}
-                  </span>
-
-                  <button class="backup-pill" type="button" @click.stop="openBackupEditor('places', it)">
-                    照片
-                  </button>
-
                   <button
-                    class="backup-pill"
+                    class="btn btn-secondary btn-mini"
                     type="button"
-                    @click.stop="openNavigation(it.mapQuery || it.address || it.title)"
+                    @click.stop="openNavigation(it.mapQuery || it.title)"
                   >
                     📍
                   </button>
                 </div>
               </div>
 
-              <div class="backup-field">
-                <div class="bf-line1">地址：{{ it.address || '—' }}</div>
-                <div class="bf-line2 muted">（可點右上角「導航」直接開 Google Maps）</div>
+              <!-- ✅ 營業時間：標題下方、地址上方（但我們會移除地址欄位，所以就放在標題下方即可） -->
+              <div v-if="(it.hours || '').trim()" class="backup-subline">
+                ⏰ {{ it.hours }}
               </div>
+
+
+
 
               <div class="backup-field">
                 <div class="bf-line1 muted">備註</div>
@@ -1554,10 +1653,7 @@
               </label>
 
               <template v-if="backupEditor.kind === 'food'">
-                <label class="field">
-                  <div class="field-label">分店</div>
-                  <input class="field-input" v-model="backupEditor.form.branch" :disabled="!canWrite" placeholder="例如：道頓堀店" />
-                </label>
+
 
                 <label class="field">
                   <div class="field-label">排隊預估（分鐘）</div>
@@ -1607,10 +1703,7 @@
               </template>
 
               <template v-else>
-                <label class="field field-span">
-                  <div class="field-label">地址</div>
-                  <input class="field-input" v-model="backupEditor.form.address" :disabled="!canWrite" placeholder="例如：京都府京都市東山区清水1-294" />
-                </label>
+
 
                 <label class="field field-span">
                   <div class="field-label">營業時間</div>
@@ -1627,7 +1720,8 @@
                   class="field-input"
                   v-model="backupEditor.form.mapQuery"
                   :disabled="!canWrite"
-                  placeholder="不填會用名稱/地址當搜尋字"
+                  placeholder="不填會用名稱當搜尋字"
+
                 />
               </label>
 
@@ -1641,9 +1735,11 @@
             <div class="row-right">
               <button class="btn btn-secondary" @click="closeBackupEditor">關閉</button>
 
-              <button class="btn btn-primary" @click="saveBackupEdit" :disabled="!canWrite">
+              <button class="btn btn-primary" @click="saveBackupEdit" :disabled="!canWrite || isAnyUploading">
                 儲存
               </button>
+
+
 
               <button class="btn btn-danger" v-if="backupEditor.isEdit" @click="deleteBackupItem" :disabled="!canWrite">
                 刪除
@@ -1704,6 +1800,16 @@
   <button
     type="button"
     class="nav-item"
+    :class="{ active: currentPage === 'backup' }"
+    @click.stop="goPage('backup')"
+  >
+    <div class="nav-icon">🧷</div>
+    <div class="nav-label">備用</div>
+  </button>
+
+  <button
+    type="button"
+    class="nav-item"
     :class="{ active: currentPage === 'tools' }"
     @click.stop="goPage('tools')"
   >
@@ -1711,15 +1817,7 @@
     <div class="nav-label">工具</div>
   </button>
 
-  <button
-    type="button"
-    class="nav-item"
-    :class="{ active: currentPage === 'backup' }"
-    @click.stop="goPage('backup')"
-  >
-    <div class="nav-icon">🧷</div>
-    <div class="nav-label">備用</div>
-  </button>
+
 </nav>
 
 
@@ -2171,7 +2269,7 @@ const backupEditor = ref({
     mapQuery: "",
 
     // food
-    branch: "",
+
     mustEat: "",
     queueMins: null,
 
@@ -2183,7 +2281,7 @@ const backupEditor = ref({
     photoType: "",
 
     // places
-    address: "",
+
     hours: "",
   },
 
@@ -2202,7 +2300,7 @@ function openBackupEditor(kind, itemOrNull) {
       title: "",
       note: "",
       mapQuery: "",
-      branch: "",
+
       mustEat: "",
       queueMins: null,
 
@@ -2212,7 +2310,7 @@ function openBackupEditor(kind, itemOrNull) {
       photoName: "",
       photoType: "",
 
-      address: "",
+
       hours: "",
     };
 
@@ -2230,7 +2328,7 @@ snackPhotoUploading.value = false;
     note: itemOrNull.note || "",
     mapQuery: itemOrNull.mapQuery || "",
 
-    branch: itemOrNull.branch || "",
+
     mustEat: itemOrNull.mustEat || "",
     queueMins: typeof itemOrNull.queueMins === "number" ? itemOrNull.queueMins : null,
 
@@ -2240,7 +2338,7 @@ snackPhotoUploading.value = false;
     photoName: itemOrNull.photoName || "",
     photoType: itemOrNull.photoType || "",
 
-    address: itemOrNull.address || "",
+
     hours: itemOrNull.hours || "",
   };
 
@@ -2256,6 +2354,8 @@ function closeBackupEditor() {
 
 async function saveBackupEdit(options = { keepOpen: false }) {
   if (!canWrite.value) return alert("只讀模式無法儲存：請先登入並被加入 members。");
+  if (isAnyUploading.value) return alert("上傳進行中，請等待上傳完成或按取消後再儲存。");
+
 
   const kind = backupEditor.value.kind;
   const key = backupCollectionKey(kind);
@@ -2277,13 +2377,14 @@ async function saveBackupEdit(options = { keepOpen: false }) {
 
 
 
-  if (kind === "food") {
-    payload.branch = String(backupEditor.value.form.branch || "").trim();
-    payload.mustEat = String(backupEditor.value.form.mustEat || "").trim();
-    payload.queueMins =
-      typeof backupEditor.value.form.queueMins === "number"
-        ? backupEditor.value.form.queueMins
-        : null;
+if (kind === "food") {
+  payload.mustEat = String(backupEditor.value.form.mustEat || "").trim();
+  payload.queueMins =
+    typeof backupEditor.value.form.queueMins === "number"
+      ? backupEditor.value.form.queueMins
+      : null;
+
+
   } else if (kind === "snacks") {
 
     payload.photoUrl = String(backupEditor.value.form.photoUrl || "").trim();
@@ -2291,9 +2392,9 @@ async function saveBackupEdit(options = { keepOpen: false }) {
     payload.photoName = String(backupEditor.value.form.photoName || "").trim();
     payload.photoType = String(backupEditor.value.form.photoType || "").trim();
   } else {
-    payload.address = String(backupEditor.value.form.address || "").trim();
     payload.hours = String(backupEditor.value.form.hours || "").trim();
   }
+
 
   try {
     if (backupEditor.value.isEdit && backupEditor.value.id) {
@@ -2357,6 +2458,15 @@ function scrollToTopNow() {
 /* ===== Snacks photo upload ===== */
 const snackPhotoFile = ref(null);
 const snackPhotoUploading = ref(false);
+// ✅ 任何上傳進行中：禁止儲存（憑證/住宿封面/零食照片）
+const isAnyUploading = computed(() => {
+  return Boolean(
+    bookingVoucherUploading.value ||
+    bookingCoverUploading.value ||
+    snackPhotoUploading.value
+  );
+});
+
 const snackPhotoProgress = ref(0);
 
 function onSnackPhotoFileChange(e) {
@@ -2698,6 +2808,101 @@ function onDaySwipeMove(ev) {
     daySwipe.locked = true;
   }
 }
+
+/* ===================== Event drag (only via handle) ===================== */
+/* ===================== Sub tabs swipe：左右滑切換次要分頁 ===================== */
+// ✅ 用在：預定/記帳/準備/備用 的 segmented tabs（等同「行程切換不同旅遊天」）
+// 規則：水平位移夠大 + 垂直位移不大；且在輸入框/按鈕/連結上開始滑動時不觸發
+const subSwipe = {
+  x0: 0,
+  y0: 0,
+  tracking: false,
+};
+
+function isInteractiveTarget(el) {
+  if (!el || typeof el.closest !== "function") return false;
+  return !!el.closest(
+    "input, textarea, select, button, a, .btn, .seg-btn, .acc-pill, .member-pill"
+  );
+}
+
+function shouldIgnoreSubSwipe(ev) {
+  const el = ev?.target instanceof Element ? ev.target : null;
+  if (!el) return true;
+
+  // ✅ 任何 modal 開啟時，不做左右滑切 tab（避免編輯中誤觸）
+  if (el.closest(".modal-overlay") || el.closest(".modal")) return true;
+
+  // ✅ 在可互動/可輸入的元素上開始滑動，不切 tab（避免誤觸）
+  if (isInteractiveTarget(el)) return true;
+
+  return false;
+}
+
+function onSubSwipeStart(ev) {
+  const t = ev?.touches?.[0];
+  if (!t) return;
+
+  if (shouldIgnoreSubSwipe(ev)) {
+    subSwipe.tracking = false;
+    return;
+  }
+
+  subSwipe.x0 = t.clientX;
+  subSwipe.y0 = t.clientY;
+  subSwipe.tracking = true;
+}
+
+function handleSubSwipeEnd(ev, tabs, tabRef) {
+  if (!subSwipe.tracking) return;
+  subSwipe.tracking = false;
+
+  const t = ev?.changedTouches?.[0] || ev?.touches?.[0];
+  if (!t) return;
+
+  const dx = t.clientX - subSwipe.x0;
+  const dy = t.clientY - subSwipe.y0;
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+
+  // ✅ 位移太小、或主要是上下滑：不切換
+  if (adx < 60) return;
+  if (ady > 40) return;
+  if (ady > adx) return;
+
+  const idx = tabs.indexOf(tabRef.value);
+  if (idx === -1) return;
+
+  const nextIdx = dx < 0 ? idx + 1 : idx - 1; // 左滑＝下一頁；右滑＝上一頁
+  if (nextIdx < 0 || nextIdx >= tabs.length) return;
+
+  tabRef.value = tabs[nextIdx];
+  requestAnimationFrame(() => scrollToTopSmart());
+}
+
+const BOOKING_TABS = ["flight", "hotel", "car", "voucher"];
+function onBookingSwipeEnd(ev) {
+  if (bookingEditor.value?.open) return;
+  handleSubSwipeEnd(ev, BOOKING_TABS, bookingTab);
+}
+
+const ACCOUNTING_TABS = ["entry", "detail"];
+function onAccountingSwipeEnd(ev) {
+  if (expenseEditor.value?.open) return;
+  handleSubSwipeEnd(ev, ACCOUNTING_TABS, accountingTab);
+}
+
+const PREP_TABS = ["todo", "luggage", "shopping"];
+function onPrepSwipeEnd(ev) {
+  handleSubSwipeEnd(ev, PREP_TABS, prepTab);
+}
+
+const BACKUP_TABS = ["food", "snacks", "places"];
+function onBackupSwipeEnd(ev) {
+  if (backupEditor.value?.open) return;
+  handleSubSwipeEnd(ev, BACKUP_TABS, backupTab);
+}
+
 
 function onDaySwipeEnd() {
   if (!daySwipe.tracking) return;
@@ -3883,6 +4088,10 @@ function openBookingEditor(b) {
       voucherPath: "",
       voucherName: "",
       voucherType: "",
+      coverUrl: "",
+      coverPath: "",
+      coverName: "",
+
     };
     return;
   }
@@ -3918,6 +4127,9 @@ function openBookingEditor(b) {
     voucherPath: b.voucherPath || "",
     voucherName: b.voucherName || "",
     voucherType: b.voucherType || "",
+    coverUrl: b.coverUrl || "",
+    coverPath: b.coverPath || "",
+    coverName: b.coverName || "",
   };
 }
 
@@ -3929,6 +4141,8 @@ function closeBookingEditor() {
 
 async function saveBookingEdit(options = { keepOpen: false }) {
   if (!canWrite.value) return alert("只讀模式無法儲存。請先登入並被加入 members。");
+  if (isAnyUploading.value) return alert("上傳進行中，請等待上傳完成或按取消後再儲存。");
+
 
   const f = bookingEditor.value.form;
   if (!f.type) return alert("請選類型");
@@ -4021,12 +4235,129 @@ async function deleteBooking() {
 
 }
 
+
+/* ===================== Booking Cover upload (Storage) ===================== */
+const bookingCoverFile = ref(null);
+const bookingCoverFileName = ref("");
+const bookingCoverUploading = ref(false);
+const bookingCoverProgress = ref(0);
+let bookingCoverTask = null;
+
+function onBookingCoverFileChange(ev) {
+  const input = ev?.target;
+  const f = input?.files?.[0] || null;
+
+  bookingCoverFile.value = f;
+  bookingCoverFileName.value = f ? (f.name || "已選擇照片") : "";
+
+  // iOS/同檔重選修正
+  if (input) input.value = "";
+}
+
+function cancelBookingCoverUpload() {
+  try {
+    if (bookingCoverTask) bookingCoverTask.cancel();
+  } catch (_) {}
+}
+
+async function uploadBookingCover() {
+  if (!canWrite.value) return alert("只讀模式無法上傳：請先登入並被加入 members。");
+  if (!bookingCoverFile.value) return alert("請先選擇照片檔案。");
+  if (bookingCoverUploading.value) return;
+
+  try {
+    // ✅ 先確保 bookingId 存在
+    if (!bookingEditor.value.originId) {
+      await withTimeout(saveBookingEdit({ keepOpen: true }), 20000, "建立預定");
+      if (!bookingEditor.value.originId) throw new Error("儲存成功後仍未取得 bookingId（originId）");
+    }
+
+    bookingCoverUploading.value = true;
+    bookingCoverProgress.value = 0;
+
+    const raw = bookingCoverFile.value;
+    const upFile = await withTimeout(compressImageToJpeg(raw, 1600, 0.8), 20000, "圖片壓縮");
+
+    const tripId = DEFAULT_TRIP_ID;
+    const bookingId = bookingEditor.value.originId;
+
+    // 固定檔名：cover.jpg（重傳覆蓋）
+    const path = `trips/${tripId}/bookings/${bookingId}/cover.jpg`;
+    const r = sRef(storage, path);
+
+    bookingCoverTask = uploadBytesResumable(r, upFile, {
+      contentType: "image/jpeg",
+    });
+
+    await withTimeout(
+      new Promise((resolve, reject) => {
+        bookingCoverTask.on(
+          "state_changed",
+          (snap) => {
+            if (snap.totalBytes > 0) {
+              bookingCoverProgress.value = Math.max(
+                1,
+                Math.round((snap.bytesTransferred / snap.totalBytes) * 100)
+              );
+            } else {
+              bookingCoverProgress.value = Math.max(1, bookingCoverProgress.value || 1);
+            }
+          },
+          (err) => reject(err),
+          () => resolve()
+        );
+      }),
+      120000,
+      "上傳封面"
+    );
+
+    bookingCoverProgress.value = 100;
+
+    const url = await getDownloadURL(bookingCoverTask.snapshot.ref);
+
+    // ✅ 寫回 Firestore
+    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingId);
+    const coverName = upFile.name || "cover.jpg";
+
+    await updateDoc(refDoc, {
+      coverUrl: url,
+      coverPath: path,
+      coverName,
+      updatedAt: serverTimestamp(),
+    });
+
+    // ✅ 同步 modal 表單
+    bookingEditor.value.form.coverUrl = url;
+    bookingEditor.value.form.coverPath = path;
+    bookingEditor.value.form.coverName = coverName;
+
+    alert("封面上傳成功！");
+  } catch (e) {
+    if (String(e?.code || "").includes("storage/canceled")) {
+      alert("已取消上傳。");
+    } else {
+      console.error("上傳封面失敗：", e);
+      alert(`上傳失敗：${e?.message || e}`);
+    }
+  } finally {
+    bookingCoverUploading.value = false;
+    bookingCoverProgress.value = 0;
+    bookingCoverTask = null;
+
+    bookingCoverFile.value = null;
+    bookingCoverFileName.value = "";
+  }
+}
+
 /* ===================== Booking Voucher upload (Storage) ===================== */
 const bookingVoucherFile = ref(null);          // 目前選到的檔案（PDF/圖片）
 const bookingVoucherFileName = ref("");        // 顯示用檔名
 const bookingVoucherUploading = ref(false);    // boolean
 const bookingVoucherProgress = ref(0);         // 0~100
 let bookingVoucherTask = null;                 // uploadBytesResumable task（可取消）
+
+// ✅ 任何上傳進行中就視為「不可儲存」
+
 
 // ✅ 開啟憑證：優先用 voucherUrl；沒有就用 voucherPath 即時換 URL
 async function openBookingVoucher(b) {
@@ -4302,6 +4633,85 @@ function recomputePrepDirty(kind, list) {
 }
 
 
+/* ===================== Prep item editor (tap to edit) ===================== */
+const prepEditor = ref({
+  open: false,
+  kind: "todo",     // todo/luggage/shopping
+  originId: "",
+  form: {
+    text: "",
+    note: "",
+  },
+});
+
+function openPrepEditor(kind, it, ev) {
+  // 拖曳中不開 editor
+  if (prepDrag.value?.draggingId) return;
+
+  // 點 checkbox 已 stop，不會走到這裡；這裡再做保險
+  const el = ev?.target instanceof Element ? ev.target : null;
+  if (el && el.closest("input, textarea, select, button, a, .btn")) return;
+
+  prepEditor.value.open = true;
+  prepEditor.value.kind = kind;
+  prepEditor.value.originId = it.id;
+  prepEditor.value.form = {
+    text: it.text || "",
+    note: it.note || "",
+  };
+}
+
+function closePrepEditor() {
+  prepEditor.value.open = false;
+  prepEditor.value.originId = "";
+}
+
+async function savePrepEditor() {
+  if (!canWrite.value) return alert("只讀模式無法儲存。請先登入並被加入 members。");
+  if (!prepEditor.value.originId) return;
+
+  const kind = prepEditor.value.kind;
+  const key = prepCollectionKey(kind);
+
+  const text = String(prepEditor.value.form.text || "").trim();
+  const note = String(prepEditor.value.form.note || "").trim();
+
+  if (!text) return alert("選項文字不可空白");
+
+  try {
+    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, key, prepEditor.value.originId);
+    await updateDoc(refDoc, {
+      text,
+      note,
+      updatedAt: serverTimestamp(),
+    });
+
+    closePrepEditor();
+    alert("儲存成功！");
+  } catch (e) {
+    console.error("儲存準備項目失敗：", e);
+    alert(`儲存失敗：${e?.message || e}`);
+  }
+}
+
+async function deletePrepFromEditor() {
+  if (!canWrite.value) return;
+  if (!prepEditor.value.originId) return;
+  if (!confirm("確定要刪除？")) return;
+
+  try {
+    const kind = prepEditor.value.kind;
+    const key = prepCollectionKey(kind);
+    await deleteDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, prepEditor.value.originId));
+
+    closePrepEditor();
+    alert("已刪除！");
+  } catch (e) {
+    console.error("刪除準備項目失敗：", e);
+    alert("刪除失敗（多半是 rules 目前不允許 delete）");
+  }
+}
+
 
 const prepTab = ref("todo");
 const prepInput = ref({ todo: "", luggage: "", shopping: "" });
@@ -4553,6 +4963,7 @@ function subscribePrepList(kind) {
         return {
           id: d.id,
           text: data.text || "",
+          note: data.note || "",
           done: !!data.done,
           order: typeof data.order === "number" ? data.order : null, // ✅ 新增：排序用
           uid: data.uid || "",
@@ -4583,6 +4994,7 @@ async function addPrepItem(kind) {
     const key = prepCollectionKey(kind);
     await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, key), {
       text,
+      note: "",
       done: false,
       order: Date.now(), // ✅ 新增：預設用時間當排序（越新越後）
       uid: user.value.uid,

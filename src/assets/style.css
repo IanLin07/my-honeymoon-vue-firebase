@@ -182,15 +182,7 @@ body{
   margin-bottom:10px;
 }
 
-/* 左側時間軸（獨立於卡片） */
-.time-rail{
-  width:58px;                /* 時間欄寬度（可微調 52~64） */
-  display:flex;
-  flex-direction:column;
-  align-items:flex-end;      /* 時間靠右，像截圖 */
-  padding-top:6px;
-  flex:0 0 auto;
-}
+
 
 .time-text{
   font-weight:1000;
@@ -999,10 +991,13 @@ body{
   font-weight: 1000;
   font-size: 20px;
   letter-spacing: .2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.2;
 }
+
 
 .backup-pills{
   display:flex;
@@ -1825,6 +1820,138 @@ body{
   margin: 12px 0 0;
 }
 
+
+/* ===== Itinerary: time on top, full width card ===== */
+
+/* 保險：即使殘留，也強制不顯示時間軸元件 */
+.time-rail,
+.time-dot,
+.time-line,
+.time-railbar {
+  display: none !important;
+}
+
+/* 每個行程項目：用直向排列，避免左右欄造成卡片變窄 */
+.event-item {
+  display: block;
+}
+
+/* 時間顯示在卡片上方 */
+.event-time-top {
+  font-size: 12px;
+  color: #666;
+  margin: 6px 0 4px;
+  padding: 0 2px;
+}
+
+/* 卡片 + 筆記堆疊：滿版 */
+.event-stack {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 卡片本體：滿版 */
+.event-card {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 筆記（收合顯示那塊 note-between）同寬且可換行 */
+.note-between {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.note-between-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 住宿卡片：訂位碼 + 憑證同列（訂位碼在左、憑證在右） */
+.stay-hero-top{
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 2;
+}
+
+.stay-code-badge{
+  max-width: calc(100% - 76px); /* 右邊預留給「憑證」按鈕 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Prep：文字換行 + 備註樣式 */
+.prep-textwrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.prep-text {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.prep-note {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #777;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+/* Backup：標題下方小字（營業時間/備註） */
+.backup-subline{
+  margin-top: 6px;
+  font-size: 12px;
+  color: #666;
+  font-weight: 800;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.backup-note{
+  margin-top: 6px;
+  font-size: 12px;
+  color: #777;
+  font-weight: 700;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+/* Backup：標題下方小字（營業時間/備註） */
+.backup-subline{
+  margin-top: 6px;
+  font-size: 12px;
+  color: #666;
+  font-weight: 800;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.backup-note{
+  margin-top: 6px;
+  font-size: 12px;
+  color: #777;
+  font-weight: 700;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
+}
 
 
 @media (max-width: 420px){
