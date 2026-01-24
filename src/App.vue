@@ -35,6 +35,13 @@
         <div class="auth-right">
           <button v-if="!user" class="btn btn-secondary" @click="loginGoogle">Google 登入</button>
           <button v-if="user" class="btn btn-ghost" @click="logout">登出</button>
+          <button
+            class="btn btn-ghost"
+            type="button"
+            @click="exportItineraryJson"
+          >
+            ⬇️匯出JSON
+          </button>
         </div>
       </div>
 
@@ -46,6 +53,9 @@
 
       <!-- =============== 行程頁（任何人可看；登入且是成員才可改） =============== -->
       <section v-if="currentPage === 'itinerary'" class="page">
+
+
+
         <div class="day-tabs">
           <button
             v-for="day in plan"
@@ -136,7 +146,11 @@
             <div class="day-head-actions" v-if="canWrite">
               <button class="btn btn-primary btn-mini" @click="openEventEditor(day.id, null)">新增</button>
 
+
             </div>
+
+            
+
 
             <div class="day-head-actions" v-else>
               <div class="readonly-hint">
@@ -1033,7 +1047,10 @@
 
             <!-- 儲存 -->
             <div class="acc-actions">
-              <button class="btn btn-primary" @click="addExpenseFromFancy" :disabled="!canWrite">儲存</button>
+              <button class="btn btn-primary" @click="addExpenseFromFancy" :disabled="!canWrite || expensesLoading">
+                儲存
+              </button>
+
             </div>
 
             <div class="acc-hint">
@@ -1450,7 +1467,7 @@
         </div>
       </section>
 
-<!-- =============== 備用頁（美食 / 地點） =============== -->
+      <!-- =============== 備用頁（美食 / 地點） =============== -->
       <section
         v-else-if="currentPage === 'backup'"
         class="page"
@@ -1753,10 +1770,81 @@
         </div>
       </section>
 
+      <!-- =============== 新增成員頁 section   =============== -->
+      <section v-else-if="currentPage === 'members'" class="page">
+        <div class="page-head">
+
+          <div class="page-sub" v-if="isOwner">你是 owner，可新增/刪除與切換讀寫</div>
+          <div class="page-sub" v-else>只有 owner 可管理；你目前為{{ canWrite ? "可寫" : "只讀" }}</div>
+        </div>
+
+        <div v-if="!membershipChecked" class="empty-state">檢查權限中...</div>
+
+        <div v-else class="member-panel">
+          <!-- 新增成員（只有 owner 顯示） -->
+          <div v-if="isOwner" class="card">
+            <div class="card-title">新增/更新成員</div>
+
+            <div class="form-grid">
+              <div class="field">
+                <div class="label">UID（必填）</div>
+                <input class="input" v-model="memberForm.uid" placeholder="貼上對方 uid" />
+              </div>
+
+              <div class="field">
+                <div class="label">顯示名稱（選填）</div>
+                <input class="input" v-model="memberForm.displayName" placeholder="例如：燁姍" />
+              </div>
+            </div>
+
+            <label class="checkline">
+              <input type="checkbox" v-model="memberForm.canWrite" />
+              <span>允許寫入（可新增/修改/刪除/上傳）</span>
+            </label>
+
+            <button class="btn btn-primary" @click="addMember" type="button">新增/更新</button>
+
+            <div class="hint">
+              提示：對方 uid 可從 Firebase Auth / 你的登入資訊取得。
+            </div>
+          </div>
+
+          <!-- 成員清單 -->
+          <div class="card">
+            <div class="card-title">成員列表（{{ members.length }}）</div>
+
+            <div class="member-list">
+              <div v-for="m in members" :key="m.uid" class="member-row">
+                <div class="member-main">
+                  <div class="member-name">
+                    {{ m.displayName || "（未命名）" }}
+                    <span v-if="m.role === 'owner'" class="badge">owner</span>
+                  </div>
+                  <div class="member-meta">
+                    <div class="mono">{{ m.uid }}</div>
+                    <div class="perm">{{ m.canWrite ? "可寫" : "只讀" }}</div>
+                  </div>
+                </div>
+
+                <div class="member-actions" v-if="isOwner">
+                  <button class="btn btn-secondary" @click="toggleMemberWrite(m)" type="button">
+                    切換{{ m.canWrite ? "只讀" : "可寫" }}
+                  </button>
+
+                  <button class="btn btn-danger" @click="removeMember(m)" type="button">
+                    刪除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
 
     </main>
 
-<nav class="bottom-nav bottom-nav-6">
+<nav class="bottom-nav bottom-nav-7">
   <button
     type="button"
     class="nav-item"
@@ -1816,6 +1904,17 @@
     <div class="nav-icon">🧰</div>
     <div class="nav-label">工具</div>
   </button>
+
+  <button
+    class="nav-item"
+    :class="{ active: currentPage === 'members' }"
+    @click="goPage('members')"
+    type="button"
+  >
+    <div class="nav-ico">👥</div>
+    <div class="nav-txt">成員</div>
+  </button>
+
 
 
 </nav>
@@ -1898,7 +1997,26 @@ const userMeta = computed(() => {
 const membershipChecked = ref(false);
 const isMember = ref(false);
 
-const canWrite = computed(() => !!user.value && membershipChecked.value && isMember.value);
+
+// ✅ 自己的 members 文件（包含 canWrite / role）
+const myMember = ref(null);
+
+// ✅ 讀寫權限：必須是 members 且 canWrite=true
+const canWrite = computed(() => {
+  if (!user.value) return false;
+  if (!membershipChecked.value) return false;
+  if (!isMember.value) return false;
+  return !!myMember.value?.canWrite;
+});
+
+// ✅ 是否 owner（只有 owner 可管理成員）
+const isOwner = computed(() => {
+  if (!user.value) return false;
+  if (!membershipChecked.value) return false;
+  if (!isMember.value) return false;
+  return myMember.value?.role === "owner";
+});
+
 
 /* ===================== Members list（供 UI 成員 chips；只在成員狀態下載入） ===================== */
 const members = ref([]); // [{ uid, displayName }]
@@ -1910,19 +2028,43 @@ const memberChips = computed(() => {
   return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b, "zh-Hant"));
 });
 
-async function loadMembers() {
-  if (!canWrite.value) return;
-  try {
-    const snap = await getDocs(collection(db, "trips", DEFAULT_TRIP_ID, "members"));
-    members.value = snap.docs.map((d) => {
-      const data = d.data();
-      return { uid: d.id, displayName: data.displayName || data.name || "" };
-    });
-  } catch (e) {
-    console.error("讀取 members 失敗：", e);
-    members.value = [];
-  }
+
+let membersUnsub = null;
+
+function startMembersListener() {
+  if (membersUnsub) return;
+
+  const q = query(
+    collection(db, "trips", DEFAULT_TRIP_ID, "members"),
+    orderBy("updatedAt", "desc")
+  );
+
+  membersUnsub = onSnapshot(
+    q,
+    (snap) => {
+      members.value = snap.docs.map((d) => {
+        const x = d.data() || {};
+        return {
+          uid: d.id,
+          displayName: x.displayName || "",
+          canWrite: (x.canWrite === undefined) ? true : !!x.canWrite, // 相容舊資料
+          role: x.role || "member",
+        };
+      });
+    },
+    (err) => {
+      console.error("members 監聽失敗：", err);
+      members.value = [];
+    }
+  );
 }
+
+function stopMembersListener() {
+  try { if (membersUnsub) membersUnsub(); } catch (_) {}
+  membersUnsub = null;
+}
+
+
 
 /* ===================== Presence（線上名單：登入才啟用） ===================== */
 const presenceRaw = ref([]);
@@ -2002,6 +2144,76 @@ function unsubscribePresence() {
   unsubPresence = null;
   presenceRaw.value = [];
 }
+
+const memberForm = ref({
+  uid: "",
+  displayName: "",
+  canWrite: true,
+});
+
+async function addMember() {
+  if (!isOwner.value) return alert("只有 owner 可以新增/管理成員。");
+  const uid = String(memberForm.value.uid || "").trim();
+  if (!uid) return alert("請輸入 uid。");
+
+  const payload = {
+    uid,
+    displayName: String(memberForm.value.displayName || "").trim(),
+    canWrite: !!memberForm.value.canWrite,
+    role: "member",
+    updatedAt: serverTimestamp(),
+  };
+
+  try {
+    await setDoc(doc(db, "trips", DEFAULT_TRIP_ID, "members", uid), payload, { merge: true });
+    memberForm.value = { uid: "", displayName: "", canWrite: true };
+    alert("新增/更新成員成功！");
+  } catch (e) {
+    console.error("addMember 失敗：", e);
+    alert("新增失敗（可能是 rules 不允許 / 網路問題）");
+  }
+}
+
+async function toggleMemberWrite(m) {
+  if (!isOwner.value) return alert("只有 owner 可以管理成員權限。");
+  if (!m?.uid) return;
+
+  // 不允許把 owner 改成只讀（避免把自己鎖死）
+  if (m.role === "owner") return alert("owner 權限不可關閉寫入。");
+
+  try {
+    await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, "members", m.uid), {
+      canWrite: !m.canWrite,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error("toggleMemberWrite 失敗：", e);
+    alert("更新失敗（可能是 rules 不允許 / 網路問題）");
+  }
+}
+
+async function removeMember(m) {
+  if (!isOwner.value) return alert("只有 owner 可以刪除成員。");
+  if (!m?.uid) return;
+
+  if (m.role === "owner") return alert("不能刪除 owner。");
+  if (m.uid === user.value?.uid) return alert("不能刪除自己（避免把自己踢出去）。");
+
+  if (!confirm(`確定要刪除成員：${m.displayName || m.uid}？`)) return;
+
+  try {
+    await deleteDoc(doc(db, "trips", DEFAULT_TRIP_ID, "members", m.uid));
+    alert("刪除成功！");
+  } catch (e) {
+    console.error("removeMember 失敗：", e);
+    alert("刪除失敗（可能是 rules 不允許 / 網路問題）");
+  }
+}
+
+
+
+
+
 
 /* ===================== Pages ===================== */
 const currentPage = ref("itinerary");
@@ -2547,7 +2759,8 @@ async function uploadSnackPhoto() {
 
 
 
-const VALID_PAGES = new Set(["itinerary", "booking", "accounting", "prep", "tools", "backup"]);
+const VALID_PAGES = new Set(["itinerary", "booking", "accounting", "prep", "tools", "backup", "members"]);
+
 
 
 
@@ -2610,6 +2823,7 @@ const pageTitle = computed(() => {
   if (currentPage.value === "prep") return "準備";
   if (currentPage.value === "tools") return "工具";
   if (currentPage.value === "backup") return "備用";
+  if (currentPage.value === "members") return "成員";
   return "";
 });
 
@@ -2672,13 +2886,20 @@ onMounted(async () => {
 
     console.log("[AUTH] membershipChecked =", membershipChecked.value, "isMember =", isMember.value, "canWrite =", canWrite.value);
 
-    if (canWrite.value) {
-      await loadMembers();
+    // ✅ 成員就訂閱 members 清單（owner / 只讀成員都要能看到）
+    // 目的：成員管理頁可以看到清單、記帳的 member chips 也有資料
+    if (isMember.value) {
+      startMembersListener();
+
       const me = userLabel.value;
       uiMember.value = memberChips.value.includes(me) ? me : memberChips.value[0] || me;
     } else {
+      stopMembersListener();
+      members.value = [];
+
       if (accountingTab.value === "entry") accountingTab.value = "detail";
     }
+
   } catch (e) {
     // ✅ 關鍵：如果登入後任何一段 throw，你之前加在下面的 log 就永遠看不到
     console.error("[AUTH] onAuthStateChanged crashed:", e);
@@ -2693,6 +2914,7 @@ onBeforeUnmount(() => {
   unsubscribePresence();
   unsubscribePrepAll();
   unsubscribeBackupAll();
+  stopMembersListener();
 
   if (navPulseTimer) clearTimeout(navPulseTimer);
 });
@@ -2711,25 +2933,92 @@ async function logout() {
 
 /* ===================== members 檢查 ===================== */
 async function checkMembership() {
-  if (!user.value) return;
-
   membershipChecked.value = false;
   isMember.value = false;
+  myMember.value = null;
 
   try {
-    const memberRef = doc(db, "trips", DEFAULT_TRIP_ID, "members", user.value.uid);
-    const snap = await getDoc(memberRef);
-    isMember.value = snap.exists();
+    if (!user.value?.uid) {
+      membershipChecked.value = true;
+      return;
+    }
+
+    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "members", user.value.uid);
+    const snap = await getDoc(refDoc);
+
+    if (!snap.exists()) {
+      isMember.value = false;
+      myMember.value = null;
+      membershipChecked.value = true;
+      return;
+    }
+
+    isMember.value = true;
+
+    const data = snap.data() || {};
+    // ✅ 相容舊資料：沒 canWrite 就視為 true（避免你原本成員全部突然變只讀）
+    myMember.value = {
+      uid: data.uid || user.value.uid,
+      displayName: data.displayName || user.value.displayName || "使用者",
+      canWrite: (data.canWrite === undefined) ? true : !!data.canWrite,
+      role: data.role || "member",
+    };
+
+    membershipChecked.value = true;
   } catch (e) {
-    console.error("檢查 members 失敗：", e);
+    console.error("checkMembership 失敗：", e);
+    // 保守：失敗就當只讀
     isMember.value = false;
-  } finally {
+    myMember.value = null;
     membershipChecked.value = true;
   }
 }
 
+
 /* ===================== Plan：trips/.../plan ===================== */
 const plan = ref([]);
+function downloadJsonFile(filename, dataObj) {
+  const json = JSON.stringify(dataObj, null, 2);
+  const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  URL.revokeObjectURL(url);
+}
+
+function exportItineraryJson() {
+  // ✅ 匯出「整份行程」：plan 內含所有天數（不只目前選到的那天）
+  const cleanedPlan = (plan.value || []).map((day) => {
+    const events = Array.isArray(day.events) ? day.events : [];
+    // 移除 UI 用的 showNote（你存回 Firebase 時也會去掉它）
+    const cleanedEvents = events.map(({ showNote, ...rest }) => rest);
+
+    return {
+      ...day,
+      events: cleanedEvents,
+    };
+  });
+
+  const payload = {
+    schema: "honeymoon-itinerary-v1",
+    tripId: DEFAULT_TRIP_ID,
+    exportedAt: new Date().toISOString(),
+    plan: cleanedPlan,
+  };
+
+  const ymd = new Date().toISOString().slice(0, 10);
+  const filename = `itinerary_${DEFAULT_TRIP_ID}_${ymd}.json`;
+
+  downloadJsonFile(filename, payload);
+  alert("✅ 已匯出整份行程（JSON）");
+}
+
 const activeDayId = ref(null);
 const planLoading = ref(false);
 // ===================== Mobile UX：切換天數回到頂端 =====================
@@ -3063,6 +3352,10 @@ async function loadPlan() {
     planLoading.value = false;
   }
 }
+
+
+
+
 
 async function initPlanDays() {
   if (!canWrite.value) return alert("只讀模式無法初始化。請先登入並被加入 members。");
@@ -3856,6 +4149,7 @@ async function addExpenseFromFancy() {
     item: uiItem.value,
   });
 
+  // ✅ 這裡原本有用到未定義的 f（會讓儲存直接炸掉），移除
   const payload = {
     date: expenseForm.value.date,
     amount: amount,
@@ -3865,11 +4159,9 @@ async function addExpenseFromFancy() {
     uid: user.value.uid,
     displayName: user.value.displayName || "使用者",
     createdAt: serverTimestamp(),
-    checkOutDate: f.checkOutDate || "",
-    usageDate: f.usageDate || "",
-
   };
 
+  // ✅ 本機先插一筆（體感更快）
   const localId = `local_${Date.now()}`;
   expenses.value.unshift({ id: localId, ...payload, createdAt: new Date() });
   saveLocal("hm_expenses_cache", expenses.value);
@@ -3883,11 +4175,13 @@ async function addExpenseFromFancy() {
     alert("已先存本機，但雲端寫入失敗（請檢查 rules / 網路）");
   }
 
+  // ✅ 清空欄位
   expenseForm.value.amount = "";
   uiPlace.value = "";
   uiItem.value = "";
   uiPayMethod.value = "現金";
 }
+
 
 const filteredExpensesForDetail = computed(() => {
   let list = expenses.value;
@@ -5516,6 +5810,14 @@ function formatNumber(n) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.itinerary-top-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap; /* ✅ 小手機也不會超出畫面 */
 }
 
 </style>

@@ -462,9 +462,12 @@ body{
 }
 
 /*.bottom-nav-4{ grid-template-columns:repeat(4,1fr); }*/
-.bottom-nav-5{ grid-template-columns:repeat(5,1fr); }
+/*.bottom-nav-5{ grid-template-columns:repeat(5,1fr); }*/
 .bottom-nav-6{ grid-template-columns:repeat(6,1fr); }
+.bottom-nav-7{ grid-template-columns:repeat(7,1fr); }
 
+.nav-item .nav-ico { font-size: 16px; line-height: 1; }
+.nav-item .nav-txt { font-size: 11px; line-height: 1.1; white-space: nowrap; }
 
 .nav-item{
   border:0;
@@ -1952,6 +1955,52 @@ body{
   word-break: break-word;
   line-height: 1.25;
 }
+
+.member-panel .card { margin-bottom: 12px; }
+.member-panel .form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.member-panel .field .label { font-size: 12px; opacity: .8; margin-bottom: 6px; }
+.member-panel .input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.checkline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+.member-list { display: flex; flex-direction: column; gap: 10px; }
+.member-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.08);
+}
+
+.member-name { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.15);
+}
+
+.member-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; opacity: .8; }
+.perm { font-size: 12px; opacity: .85; }
+
+.member-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.member-actions .btn { flex: 1; min-width: 120px; }
 
 
 @media (max-width: 420px){
