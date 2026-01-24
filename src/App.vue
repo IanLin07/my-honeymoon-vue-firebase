@@ -573,10 +573,7 @@
                   </div>
                 </div>
 
-                <div class="bk2-box">
-                  <div class="bk2-box-label">購買日期</div>
-                  <div class="bk2-box-value">{{ b.purchasedAt || "—" }}</div>
-                </div>
+
               </div>
 
               <button
@@ -1423,50 +1420,6 @@
       </section>
 
 
-      <!-- =============== 工具頁：即時匯率換算器（TWD / JPY） =============== -->
-      <section v-else-if="currentPage === 'tools'" class="page">
-
-        <div class="card">
-          <div class="card-header-row">
-            <div class="card-title">💱 匯率換算器</div>
-
-            <button
-              class="btn btn-secondary btn-mini"
-              type="button"
-              :disabled="fxToolUpdating"
-              @click="manualRefreshFxTool"
-            >
-              {{ fxToolUpdating ? "更新中…" : "更新匯率" }}
-            </button>
-
-          </div>
-
-
-          <div class="fx-row">
-            <label class="fx-field">
-              <div class="field-label">台幣 TWD</div>
-              <input class="field-input" type="number" v-model.number="fxTool.twd" @input="onFxToolTwdInput"  />
-            </label>
-
-            <div class="fx-eq">⇄</div>
-
-            <label class="fx-field">
-              <div class="field-label">日幣 JPY</div>
-              <input class="field-input" type="number" v-model.number="fxTool.jpy" @input="onFxToolJpyInput"  />
-            </label>
-          </div>
-
-          <div class="fx-meta">
-            <div>匯率（JPY→TWD）：1：{{ fxToolRate.toFixed(4) }}</div>
-            <div class="fx-meta-sub">
-              更新：{{ fxTool.updatedAt || "尚未更新" }}
-            </div>
-          </div>
-
-
-        </div>
-      </section>
-
       <!-- =============== 備用頁（美食 / 地點） =============== -->
       <section
         v-else-if="currentPage === 'backup'"
@@ -1476,14 +1429,15 @@
       >
 
         <div class="segmented segmented-3 backup-sticky">
-
+          <button class="seg-btn" :class="{ active: backupTab === 'snacks' }" @click="backupTab='snacks'" type="button">
+            🍫 零食
+          </button>
+          
           <button class="seg-btn" :class="{ active: backupTab === 'food' }" @click="backupTab='food'" type="button">
             🍜 美食
           </button>
 
-          <button class="seg-btn" :class="{ active: backupTab === 'snacks' }" @click="backupTab='snacks'" type="button">
-            🍫 零食
-          </button>
+
 
           <button class="seg-btn" :class="{ active: backupTab === 'places' }" @click="backupTab='places'" type="button">
             📍 地點
@@ -1530,12 +1484,7 @@
 
               </div>
 
-              <div class="backup-field">
-                <div class="bf-line1">想吃：{{ it.mustEat || '—' }}</div>
-                <div class="bf-line2">
-                  排隊：{{ (it.queueMins || it.queueMins === 0) ? `${it.queueMins}分` : '—' }}
-                </div>
-              </div>
+
 
               <div class="backup-field">
                 <div class="bf-line1 muted">備註</div>
@@ -1549,9 +1498,28 @@
         <!-- ===== 零食 ===== -->
         <div v-else-if="backupTab === 'snacks'" class="card">
           <div class="row-right" style="margin-top:10px;">
-            <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('snacks', null)">新增</button>
+            <!-- ✅ 切換按鈕：清單 / 圖片庫 -->
+            <button
+              class="btn btn-secondary"
+              type="button"
+              @click="snackGalleryMode = !snackGalleryMode"
+              :disabled="backup.snacks.loading"
+              :title="snackGalleryMode ? '切回清單模式' : '切到圖片庫模式'"
+            >
+              {{ snackGalleryMode ? "≡" : "∷" }}
+            </button>
+
+            <button
+              class="btn btn-primary"
+              v-if="canWrite"
+              @click="openBackupEditor('snacks', null)"
+            >
+              新增
+            </button>
+
             <div v-else class="readonly-hint">只讀模式：登入且在 members 才能新增/編輯。</div>
           </div>
+
 
           <div v-if="backup.snacks.loading" class="empty-state">讀取中...</div>
           <div v-else-if="backup.snacks.error" class="empty-state">讀取失敗：{{ backup.snacks.error }}</div>
@@ -1560,7 +1528,8 @@
             尚未建立零食口袋名單。
           </div>
 
-          <div v-else class="list">
+          <!-- ✅ 清單模式 -->
+          <div v-else-if="!snackGalleryMode" class="list">
             <div
               v-for="it in backup.snacks.items"
               :key="it.id"
@@ -1571,7 +1540,7 @@
                 <div class="backup-title">{{ it.title || '（未命名）' }}</div>
 
                 <div class="backup-pills">
-                  <!-- ✅ 有上傳圖片才顯示，點了開圖片（風格同「行程卡片按鈕」） -->
+                  <!-- ✅ 有上傳圖片才顯示，點了開圖片 -->
                   <button
                     v-if="it.photoUrl"
                     class="btn btn-secondary btn-mini"
@@ -1584,13 +1553,31 @@
                 </div>
               </div>
 
-              <!-- ✅ 備註：顯示在標題下方，灰色小字，自動換行 -->
+              <!-- ✅ 備註 -->
               <div v-if="(it.note || '').trim()" class="backup-note">
                 {{ it.note }}
               </div>
-
             </div>
           </div>
+
+          <!-- ✅ 圖片庫模式（只展示已上傳的照片） -->
+          <div v-else class="snack-gallery">
+            <div v-if="!snackPhotoItems.length" class="empty-state">
+              尚未上傳任何零食照片。
+            </div>
+
+            <button
+              v-for="it in snackPhotoItems"
+              :key="it.id"
+              type="button"
+              class="snack-thumb"
+              @click="openSnackPhoto(it)"
+              :title="it.title || '開啟照片'"
+            >
+              <img class="snack-thumb-img" :src="it.photoUrl" :alt="it.title || 'snack photo'" loading="lazy" />
+            </button>
+          </div>
+
         </div>
 
         
@@ -1672,15 +1659,7 @@
               <template v-if="backupEditor.kind === 'food'">
 
 
-                <label class="field">
-                  <div class="field-label">排隊預估（分鐘）</div>
-                  <input class="field-input" type="number" v-model.number="backupEditor.form.queueMins" :disabled="!canWrite" placeholder="例如：20" />
-                </label>
 
-                <label class="field field-span">
-                  <div class="field-label">想吃品項</div>
-                  <input class="field-input" v-model="backupEditor.form.mustEat" :disabled="!canWrite" placeholder="例如：豚骨拉麵 + 溏心蛋" />
-                </label>
               </template>
 
               <template v-else-if="backupEditor.kind === 'snacks'">
@@ -1844,7 +1823,7 @@
 
     </main>
 
-<nav class="bottom-nav bottom-nav-7">
+<nav class="bottom-nav bottom-nav-6">
   <button
     type="button"
     class="nav-item"
@@ -1895,15 +1874,6 @@
     <div class="nav-label">備用</div>
   </button>
 
-  <button
-    type="button"
-    class="nav-item"
-    :class="{ active: currentPage === 'tools' }"
-    @click.stop="goPage('tools')"
-  >
-    <div class="nav-icon">🧰</div>
-    <div class="nav-label">工具</div>
-  </button>
 
   <button
     class="nav-item"
@@ -1911,8 +1881,8 @@
     @click="goPage('members')"
     type="button"
   >
-    <div class="nav-ico">👥</div>
-    <div class="nav-txt">成員</div>
+    <div class="nav-icon">👥</div>
+    <div class="nav-label">成員</div>
   </button>
 
 
@@ -2367,6 +2337,22 @@ function bookingStayPerPersonPerNight(b) {
 
 
 const backupTab = ref("food"); // food | snacks | places
+
+// ✅ 零食：清單/圖片庫切換
+const snackGalleryMode = ref(false);
+
+// ✅ 零食：只收集「有上傳照片」的項目（用於圖片庫展示）
+const snackPhotoItems = computed(() => {
+  const items = backup.value?.snacks?.items || [];
+  return items.filter((it) => Boolean(it.photoUrl));
+});
+
+// ✅ 離開零食分頁時，自動回到清單模式（避免切回來還停在圖片庫）
+watch(backupTab, (v) => {
+  if (v !== "snacks") snackGalleryMode.value = false;
+});
+
+
 /* ===================== Backup（備用：美食/地點） ===================== */
 const backup = ref({
   food: { items: [], loading: false, error: "" },
