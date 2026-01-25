@@ -2046,6 +2046,38 @@ body{
 .member-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .member-actions .btn { flex: 1; min-width: 120px; }
 
+/* ===============================
+   檔案選擇：按鈕 + 路徑同列顯示
+   =============================== */
+
+.file-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 選擇檔案按鈕：固定寬度 */
+.file-picker-row .btn {
+  flex-shrink: 0;
+}
+
+/* 藍色顯示區：吃滿剩餘空間 */
+.voucher-file-pill {
+  flex: 1;
+  min-width: 0;
+
+  padding: 6px 10px;
+  background: #e8f3ff;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.2;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 
 @media (max-width: 420px){
   .booking-stay-card{ border-radius: 24px; }

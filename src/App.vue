@@ -192,6 +192,20 @@
                       📍
                     </button>
 
+                    <!-- ✅ 有照片才顯示：開啟照片 -->
+                    <button
+                      v-if="event.photoUrl"
+                      class="btn btn-secondary btn-mini"
+                      type="button"
+                      @pointerup.stop
+                      @touchend.stop
+                      @click.stop="openEventPhoto(event.photoUrl)"
+                      title="開啟照片"
+                      aria-label="開啟照片"
+                    >
+                      🖼️
+                    </button>
+
                     <button
                       class="btn btn-secondary btn-mini"
                       type="button"
@@ -202,6 +216,9 @@
                       📝
                     </button>
                   </div>
+
+
+
                 </div>
 
                 <div v-if="event.showNote" class="note-panel">
@@ -308,6 +325,83 @@
                 <input class="field-input" v-model="eventEditor.form.loc" :disabled="!canWrite" placeholder="例如：大阪城天守閣" />
               </label>
             </div>
+
+
+
+            <!-- ✅ 行程照片上傳 -->
+            <div style="margin-top:12px;">
+              <div style="font-weight:700; margin-bottom:6px;">照片</div>
+
+              <!-- ✅ 原生 input 隱藏：避免顯示「未選擇任何檔案」 -->
+              <div class="voucher-row">
+                <input
+                  id="eventPhotoFileInput"
+                  class="voucher-file-hidden"
+                  type="file"
+                  accept="image/*"
+                  @change="onEventPhotoFileChange"
+                  :disabled="!canWrite || eventPhotoUploading"
+                />
+
+                <!-- ✅ 自訂選檔按鈕（參考預定頁） -->
+                <label
+                  class="btn btn-secondary btn-mini"
+                  :class="{ 'is-disabled': (!canWrite || eventPhotoUploading) }"
+                  :for="(!canWrite || eventPhotoUploading) ? null : 'eventPhotoFileInput'"
+                >
+                  選擇檔案
+                </label>
+
+                <!-- ✅ 顯示已選檔名 -->
+                <div class="voucher-file-pill">
+                  {{ eventPhotoFileName ? ('已選擇：' + eventPhotoFileName) : '' }}
+                </div>
+
+
+                <button
+                  class="btn btn-secondary btn-mini"
+                  type="button"
+                  :disabled="!canWrite || eventPhotoUploading || !eventPhotoFile || !eventEditor.isEdit"
+                  @click="uploadEventPhoto"
+                >
+                  {{ eventPhotoUploading ? `上傳中 ${eventPhotoProgress}%` : (eventEditor.isEdit ? "上傳照片" : "請先儲存後再上傳") }}
+                </button>
+
+                <button
+                  v-if="eventPhotoUploading"
+                  class="btn btn-ghost btn-mini"
+                  type="button"
+                  @click.stop.prevent="cancelEventPhotoUpload"
+                >
+                  取消
+                </button>
+
+                <button
+                  v-if="currentEventPhotoUrl"
+                  class="btn btn-ghost btn-mini"
+                  type="button"
+                  @click="openEventPhoto(currentEventPhotoUrl)"
+                >
+                  預覽
+                </button>
+
+                <!-- ✅ 新增：刪除照片（在預覽右邊） -->
+                <button
+                  v-if="currentEventPhotoUrl"
+                  class="btn btn-danger btn-mini"
+                  type="button"
+                  @click.stop.prevent="deleteEventPhoto()"
+                >
+                  刪除
+                </button>
+              </div>
+
+              <div style="font-size:12px; opacity:.7; margin-top:6px;">
+                提醒：行程照片會綁定在該行程（需先按「儲存」建立行程後才能上傳）。
+              </div>
+            </div>
+
+
 
             <div class="row-right">
               <button class="btn btn-secondary" @click="closeEventEditor">關閉</button>
@@ -814,23 +908,25 @@
                 />
 
                 <!-- ✅ 自訂選檔按鈕 -->
-                <label
-                  class="btn btn-secondary btn-mini"
-                  :class="{ 'is-disabled': (!canWrite || bookingVoucherUploading) }"
-                  :for="(!canWrite || bookingVoucherUploading) ? null : 'bookingVoucherFileInput'"
-                >
-                  選擇檔案
-                </label>
+                
+                <div class="file-picker-row">
+                  <label
+                    class="btn btn-secondary btn-mini"
+                    :class="{ 'is-disabled': (!canWrite || bookingVoucherUploading) }"
+                    :for="(!canWrite || bookingVoucherUploading) ? null : 'bookingVoucherFileInput'"
+                  >
+                    選擇檔案
+                  </label>
 
 
 
 
 
-
-                <div class="voucher-file-pill">
-                  {{ bookingVoucherFileName ? ('已選擇：' + bookingVoucherFileName) : '' }}
+                
+                  <div class="voucher-file-pill">
+                    {{ bookingVoucherFileName ? ('已選擇：' + bookingVoucherFileName) : '' }}
+                  </div>
                 </div>
-
 
                 <button
                   class="btn btn-secondary btn-mini"
@@ -1663,18 +1759,32 @@
               </template>
 
               <template v-else-if="backupEditor.kind === 'snacks'">
-
-
-                <label class="field field-span">
-                  <div class="field-label">照片（只允許圖片）</div>
-
+                <div class="field field-span">
+                  <!-- ✅ 原生 input 隱藏：移除「未選擇任何檔案」 -->
                   <input
-                    class="field-input"
+                    id="snackPhotoFileInput"
+                    class="voucher-file-hidden"
                     type="file"
                     accept="image/*"
-                    :disabled="!canWrite"
                     @change="onSnackPhotoFileChange"
+                    :disabled="!canWrite || snackPhotoUploading"
                   />
+
+                  <!-- ✅ 自訂選檔按鈕（複製預定頁） -->
+                  <div class="file-picker-row">
+                    <label
+                      class="btn btn-secondary btn-mini"
+                      :class="{ 'is-disabled': (!canWrite || snackPhotoUploading) }"
+                      :for="(!canWrite || snackPhotoUploading) ? null : 'snackPhotoFileInput'"
+                    >
+                      選擇檔案
+                    </label>
+
+                    <!-- ✅ 顯示已選檔名（複製預定頁 pill） -->
+                    <div class="voucher-file-pill">
+                      {{ snackPhotoFileName ? ('已選擇：' + snackPhotoFileName) : '' }}
+                    </div>
+                  </div> 
 
                   <div style="display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap;">
                     <button
@@ -1694,9 +1804,25 @@
                     >
                       預覽
                     </button>
+
+                    <!-- ✅ 新增：刪除照片（在預覽右邊） -->
+                    <button
+                      v-if="backupEditor.form.photoUrl"
+                      class="btn btn-danger btn-mini"
+                      type="button"
+                      @click.stop.prevent="deleteSnackPhoto()"
+                    >
+                      刪除
+                    </button>
+
+
+
+
                   </div>
-                </label>
+                </div>
               </template>
+
+
 
               <template v-else>
 
@@ -1919,7 +2045,8 @@ import {
 
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 
-import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 
 
 
@@ -2515,6 +2642,7 @@ function openBackupEditor(kind, itemOrNull) {
 snackPhotoFile.value = null;
 snackPhotoProgress.value = 0;
 snackPhotoUploading.value = false;
+snackPhotoFileName.value = "";
 
     return;
   }
@@ -2552,7 +2680,8 @@ function closeBackupEditor() {
 
 async function saveBackupEdit(options = { keepOpen: false }) {
   if (!canWrite.value) return alert("只讀模式無法儲存：請先登入並被加入 members。");
-  if (isAnyUploading.value) return alert("上傳進行中，請等待上傳完成或按取消後再儲存。");
+  if (isAnyUploading.value && !options?.ignoreUploadCheck) return alert("上傳進行中，請等待上傳完成或按取消後再儲存。");
+
 
 
   const kind = backupEditor.value.kind;
@@ -2655,6 +2784,8 @@ function scrollToTopNow() {
 
 /* ===== Snacks photo upload ===== */
 const snackPhotoFile = ref(null);
+const snackPhotoFileName = ref(""); // 顯示用檔名（複製預定頁做法）
+
 const snackPhotoUploading = ref(false);
 // ✅ 任何上傳進行中：禁止儲存（憑證/住宿封面/零食照片）
 const isAnyUploading = computed(() => {
@@ -2667,11 +2798,18 @@ const isAnyUploading = computed(() => {
 
 const snackPhotoProgress = ref(0);
 
-function onSnackPhotoFileChange(e) {
-  const f = e?.target?.files?.[0] || null;
+function onSnackPhotoFileChange(ev) {
+  const input = ev?.target;
+  const f = input?.files?.[0] || null;
+
   snackPhotoFile.value = f;
+  snackPhotoFileName.value = f ? (f.name || "已選擇照片") : "";
   snackPhotoProgress.value = 0;
+
+  // ✅ 保留：修 iOS/部分瀏覽器同檔重選不觸發 change
+  if (input) input.value = "";
 }
+
 
 function openSnackPhoto(it) {
   const url = it?.photoUrl || "";
@@ -2679,10 +2817,62 @@ function openSnackPhoto(it) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+async function deleteSnackPhoto() {
+  if (!canWrite.value) return alert("只讀模式無法刪除：請先登入並被加入 members。");
+  if (backupEditor.value.kind !== "snacks") return;
+
+  const snackId = backupEditor.value.id;
+  const photoUrl = backupEditor.value.form?.photoUrl || "";
+  const photoPath = backupEditor.value.form?.photoPath || "";
+
+  if (!photoUrl) return;
+
+  if (!confirm("確定要刪除這張照片嗎？（會同時刪除雲端 Storage 檔案）")) return;
+
+  try {
+    // ✅ 1) 刪 Storage（有 photoPath 才刪）
+    if (photoPath) {
+      try {
+        await deleteObject(sRef(storage, photoPath));
+      } catch (e) {
+        // 檔案可能已不存在：不致命，繼續清 Firestore
+        console.warn("deleteObject failed (ignored):", e?.code || e, e);
+      }
+    }
+
+    // ✅ 2) 清 Firestore（有 id 才能寫回）
+    if (snackId) {
+      await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, "backup_snacks", snackId), {
+        photoUrl: "",
+        photoPath: "",
+        photoName: "",
+        photoType: "",
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    // ✅ 3) 清 modal 畫面 / 本地狀態
+    backupEditor.value.form.photoUrl = "";
+    backupEditor.value.form.photoPath = "";
+    backupEditor.value.form.photoName = "";
+    backupEditor.value.form.photoType = "";
+
+    snackPhotoFile.value = null;
+    snackPhotoProgress.value = 0;
+
+    alert("照片已刪除 ✅");
+  } catch (e) {
+    console.error("零食照片刪除失敗：", e);
+    alert(`刪除失敗：${e?.code || ""} ${e?.message || e}`);
+  }
+}
+
+
 async function uploadSnackPhoto() {
   if (!canWrite.value) return alert("只讀模式無法上傳：請先登入並被加入 members。");
   if (backupEditor.value.kind !== "snacks") return;
   if (!snackPhotoFile.value) return alert("請先選擇圖片檔案。");
+  if (snackPhotoUploading.value) return;
 
   snackPhotoUploading.value = true;
   snackPhotoProgress.value = 0;
@@ -2691,7 +2881,8 @@ async function uploadSnackPhoto() {
     // ✅ 沒有 id 就先存一筆（keepOpen=true，避免 modal 關掉）
     let snackId = backupEditor.value.id;
     if (!snackId) {
-      snackId = await saveBackupEdit({ keepOpen: true });
+      snackId = await saveBackupEdit({ keepOpen: true, ignoreUploadCheck: true });
+
       if (!snackId) throw new Error("建立零食資料失敗，無法上傳照片。");
     }
 
@@ -2734,7 +2925,9 @@ async function uploadSnackPhoto() {
     backupEditor.value.form.photoType = file.type || "";
 
     snackPhotoFile.value = null;
-    alert("照片上傳成功 ✅");
+    snackPhotoFileName.value = "";
+      alert("照片上傳成功 ✅");
+
   } catch (e) {
     console.error("零食照片上傳失敗：", e);
     alert(`上傳失敗：${e?.code || ""} ${e?.message || e}`);
@@ -2815,7 +3008,38 @@ const pageTitle = computed(() => {
 
 
 /* ===================== Lifecycle ===================== */
+
 onMounted(async () => {
+
+  // ===== Mobile: 禁止縮放（pinch / ctrl+wheel）保險 =====
+  const preventZoom = (e) => {
+    if (e.cancelable) e.preventDefault();
+  };
+
+  // iOS Safari pinch gestures
+  document.addEventListener("gesturestart", preventZoom, { passive: false });
+  document.addEventListener("gesturechange", preventZoom, { passive: false });
+  document.addEventListener("gestureend", preventZoom, { passive: false });
+
+  // Desktop trackpad / ctrl+wheel zoom
+  document.addEventListener(
+    "wheel",
+    (e) => {
+      if (e.ctrlKey) preventZoom(e);
+    },
+    { passive: false }
+  );
+
+  // 若 runtime 環境沒吃到 index.html 的 viewport，嘗試補寫一次
+  const vp = document.querySelector('meta[name="viewport"]');
+  if (vp) {
+    vp.setAttribute(
+      "content",
+      "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    );
+  }
+
+
   // ✅ 未登入也要能看：一進來先載入可公開閱讀的資料
   await loadPlan();
   await reloadExpenses();
@@ -3586,6 +3810,14 @@ function openEventEditor(dayId, idx) {
   eventEditor.value.dayId = dayId;
   eventEditor.value.index = isEdit ? idx : null;
   eventEditor.value.isEdit = isEdit;
+    // ✅ 每次打開編輯器都重置照片選擇狀態
+  eventPhotoFile.value = null;
+  eventPhotoFileName.value = "";
+
+  eventPhotoUploading.value = false;
+  eventPhotoProgress.value = 0;
+  eventPhotoTask = null;
+
   eventEditor.value.form = {
     time: String(ev.time || ""),
     loc: String(ev.loc || ""),
@@ -3600,6 +3832,13 @@ function closeEventEditor() {
   eventEditor.value.dayId = "";
   eventEditor.value.index = null;
   eventEditor.value.isEdit = false;
+  eventPhotoFile.value = null;
+  eventPhotoFileName.value = "";
+
+  eventPhotoUploading.value = false;
+  eventPhotoProgress.value = 0;
+  eventPhotoTask = null;
+
   eventEditor.value.form = { time: "", loc: "", stayH: 1, stayM: 0 };
 }
 
@@ -3628,11 +3867,21 @@ async function saveEventEdit() {
   try {
     // ✅ 先更新 UI（讓手感快），但失敗會回滾
     if (idx === null || idx === undefined) {
-      dayObj.events.push({ ...newEvBase, note: "", showNote: false });
+      dayObj.events.push({ ...newEvBase, note: "", showNote: false, photoUrl: "", photoPath: "" });
     } else {
       const oldNote = String(dayObj.events[idx]?.note || "");
-      dayObj.events[idx] = { ...newEvBase, note: oldNote, showNote: false };
+      const oldPhotoUrl = String(dayObj.events[idx]?.photoUrl || "");
+      const oldPhotoPath = String(dayObj.events[idx]?.photoPath || "");
+
+      dayObj.events[idx] = {
+        ...newEvBase,
+        note: oldNote,
+        showNote: false,
+        photoUrl: oldPhotoUrl,
+        photoPath: oldPhotoPath,
+      };
     }
+
 
     // ✅ 每次儲存後依時間重排
     sortDayEvents(dayObj);
@@ -4517,6 +4766,164 @@ async function deleteBooking() {
 
 
 /* ===================== Booking Cover upload (Storage) ===================== */
+
+/* ===================== Itinerary Event Photo upload (Storage) ===================== */
+const eventPhotoFile = ref(null);
+const eventPhotoFileName = ref("");
+const eventPhotoUploading = ref(false);
+const eventPhotoProgress = ref(0);
+let eventPhotoTask = null;
+
+const currentEventPhotoUrl = computed(() => {
+  const dayId = eventEditor.value?.dayId;
+  const idx = eventEditor.value?.index;
+  if (!dayId || idx === null || idx === undefined) return "";
+  const dayObj = plan.value.find((d) => d.id === dayId);
+  const ev = dayObj?.events?.[idx];
+  return ev?.photoUrl || "";
+});
+
+function onEventPhotoFileChange(ev) {
+  const input = ev?.target;
+  const f = input?.files?.[0] || null;
+
+  eventPhotoFile.value = f;
+  eventPhotoFileName.value = f ? (f.name || "已選擇照片") : "";
+  eventPhotoProgress.value = 0;
+
+  // iOS/同檔重選修正：避免第二次選同檔不觸發 change
+  if (input) input.value = "";
+}
+
+
+function cancelEventPhotoUpload() {
+  try {
+    if (eventPhotoTask) eventPhotoTask.cancel();
+  } catch (_) {}
+}
+
+function openEventPhoto(url) {
+  if (!url) return;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+async function deleteEventPhoto() {
+  if (!canWrite.value) return alert("只讀模式無法刪除。請先登入並被加入 members。");
+
+  const dayId = eventEditor.value?.dayId;
+  const idx = eventEditor.value?.index;
+
+  if (!dayId || idx === null || idx === undefined) {
+    return alert("找不到行程位置（dayId/index），請重開編輯視窗再試一次。");
+  }
+
+  const dayObj = plan.value.find((d) => d.id === dayId);
+  const ev = dayObj?.events?.[idx];
+
+  if (!ev) return alert("找不到該行程資料，請重開編輯視窗再試一次。");
+  if (!ev.photoUrl && !ev.photoPath) return alert("目前沒有可刪除的照片。");
+
+  if (!confirm("確定要刪除這張照片嗎？（會同時刪除雲端 Storage 檔案）")) return;
+
+  try {
+    // ✅ 1) 刪 Storage（有 photoPath 才刪）
+    if (ev.photoPath) {
+      try {
+        await deleteObject(sRef(storage, ev.photoPath));
+      } catch (e) {
+        // 檔案可能已不存在：不致命，繼續清 Firestore
+        console.warn("deleteObject failed (ignored):", e?.code || e, e);
+      }
+    }
+
+    // ✅ 2) 清本地 / UI
+    ev.photoUrl = "";
+    ev.photoPath = "";
+
+    // ✅ 3) 寫回 Firestore（去掉 showNote）
+    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
+    await updateDoc(dayRef, { events: eventsToSave });
+
+    alert("照片已刪除 ✅");
+  } catch (e) {
+    console.error("刪除行程照片失敗：", e);
+    alert(`刪除失敗：${e?.code || ""} ${e?.message || e}`);
+  }
+}
+
+
+
+async function uploadEventPhoto() {
+  if (!canWrite.value) return alert("只讀模式無法上傳：請先登入並被加入 members。");
+  if (!eventPhotoFile.value) return alert("請先選擇照片檔案。");
+  if (eventPhotoUploading.value) return;
+
+  const dayId = eventEditor.value.dayId;
+  const idx = eventEditor.value.index;
+
+  // 行程 events 是陣列結構：沒有 id 的情況下，先要求使用者儲存，避免綁錯
+  if (!dayId || idx === null || idx === undefined) {
+    return alert("請先按「儲存」建立/更新行程後，再上傳照片。");
+  }
+
+  const dayObj = plan.value.find((d) => d.id === dayId);
+  if (!dayObj || !dayObj.events?.[idx]) return alert("找不到該行程，請重開編輯視窗再試一次。");
+
+  try {
+    eventPhotoUploading.value = true;
+    eventPhotoProgress.value = 0;
+
+    const raw = eventPhotoFile.value;
+    // 壓縮成 jpeg，避免手機大圖爆量（你專案已經有 compressImageToJpeg/withTimeout）
+    const upFile = await withTimeout(compressImageToJpeg(raw, 1600, 0.8), 20000, "圖片壓縮");
+
+    const safeName = `${Date.now()}-${String(upFile.name || "event").replace(/[^\w.\-]+/g, "_")}`;
+    const path = `trips/${DEFAULT_TRIP_ID}/plan_photos/${dayId}/${idx}/${safeName}`;
+
+    const storageRef = sRef(storage, path);
+    eventPhotoTask = uploadBytesResumable(storageRef, upFile, {
+      contentType: upFile.type || "image/jpeg",
+    });
+
+    await new Promise((resolve, reject) => {
+      eventPhotoTask.on(
+        "state_changed",
+        (snap) => {
+          const p = snap.totalBytes ? Math.round((snap.bytesTransferred / snap.totalBytes) * 100) : 0;
+          eventPhotoProgress.value = p;
+        },
+        reject,
+        resolve
+      );
+    });
+
+    const url = await getDownloadURL(eventPhotoTask.snapshot.ref);
+
+    // ✅ 更新 UI
+    dayObj.events[idx].photoUrl = url;
+    dayObj.events[idx].photoPath = path;
+
+    // ✅ 寫回 Firestore（去掉 showNote）
+    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
+    await updateDoc(dayRef, { events: eventsToSave });
+
+    
+    eventPhotoFile.value = null;
+    eventPhotoFileName.value = "";
+
+    alert("行程照片上傳成功 ✅");
+  } catch (e) {
+    console.error("行程照片上傳失敗：", e);
+    alert(`上傳失敗：${e?.code || ""} ${e?.message || e}`);
+  } finally {
+    eventPhotoUploading.value = false;
+    eventPhotoTask = null;
+  }
+}
+
+
 const bookingCoverFile = ref(null);
 const bookingCoverFileName = ref("");
 const bookingCoverUploading = ref(false);
