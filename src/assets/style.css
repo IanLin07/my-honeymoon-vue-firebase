@@ -576,6 +576,13 @@ body{
 .modal-title{ font-weight:1000; font-size:16px; }
 .modal-subtitle{ margin-top:6px; font-weight:800; font-size:12px; opacity:.7; }
 .modal-hint{ margin-top:10px; font-weight:800; font-size:12px; opacity:.65; }
+.modal-actions{
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end; /* ✅ 按鈕靠右 */
+  gap: 10px;                /* ✅ 按鈕間距 */
+  flex-wrap: wrap;          /* ✅ 手機太窄時可換行，但仍靠右 */
+}
 
 /* ===================== 記帳頁：截圖風格 ===================== */
 /* 分段切換 */
