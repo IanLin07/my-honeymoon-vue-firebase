@@ -1963,7 +1963,7 @@
               </div>
 
               <div v-if="invites.length" class="invite-box">
-                
+
               <div class="invite-title">待加入邀請（{{ invites.length }}）</div>
 
               <div class="invite-list">
@@ -2472,6 +2472,8 @@ async function inviteMemberByEmail() {
     email: emailKey,
     displayName: String(memberForm.value.displayName || "").trim(),
     canWrite: !!memberForm.value.canWrite,
+    canwrite: !!memberForm.value.canWrite, // ✅ 向下相容舊欄位
+
     role: "member",
     updatedAt: serverTimestamp(),
     createdAt: serverTimestamp(),
@@ -2513,6 +2515,7 @@ async function tryClaimInviteOnLogin() {
     if (!invSnap.exists()) return;
 
     const inv = invSnap.data() || {};
+    const invitedCanWrite = (inv.canWrite ?? inv.canwrite);
 
     // 建立 members/{uid}
     await setDoc(myMemberRef, {
