@@ -1882,6 +1882,9 @@
         </div>
       </section>
 
+      
+
+
       <!-- =============== 新增成員頁 section   =============== -->
       <section v-else-if="currentPage === 'members'" class="page">
         <div class="page-head">
@@ -1893,64 +1896,175 @@
         <div v-if="!membershipChecked" class="empty-state">檢查權限中...</div>
 
         <div v-else class="member-panel">
-          <!-- 新增成員（只有 owner 顯示） -->
-          <div v-if="isOwner" class="card">
-            <div class="card-title">新增/更新成員</div>
-
-            <div class="form-grid">
-              <div class="field">
-                <div class="label">UID（必填）</div>
-                <input class="input" v-model="memberForm.uid" placeholder="貼上對方 uid" />
-              </div>
-
-              <div class="field">
-                <div class="label">顯示名稱（選填）</div>
-                <input class="input" v-model="memberForm.displayName" placeholder="例如：燁姍" />
-              </div>
+            <div class="row-right" style="margin-top:10px;">
+              <button class="btn btn-primary" type="button" @click="openMemberInviteModal">
+                新增
+              </button>
             </div>
+          <!-- 新增成員（只有 owner 顯示）：以 Email 邀請（對方登入後自動加入） -->
 
-            <label class="checkline">
-              <input type="checkbox" v-model="memberForm.canWrite" />
-              <span>允許寫入（可新增/修改/刪除/上傳）</span>
-            </label>
 
-            <button class="btn btn-primary" @click="addMember" type="button">新增/更新</button>
+          <!-- ✅ 新增成員 Modal（按下「新增成員」才出現） -->
+          <div v-if="memberInviteModal.open" class="modal-overlay" @click.self="closeMemberInviteModal">
+            <div class="modal">
+              <div class="modal-title">新增成員（Email 邀請）</div>
+              <div class="modal-subtitle">
+                只有 owner 可新增；對方登入後自動加入
+              </div>
 
-            <div class="hint">
-              提示：對方 uid 可從 Firebase Auth / 你的登入資訊取得。
+              <div class="form-grid" style="margin-top:10px;">
+                <div class="field">
+                  <div class="field-label"">Email（必填）</div>
+                  <input
+                    class="field-input"
+                    v-model="memberForm.email"
+                    inputmode="email"
+                    placeholder="例如：someone@gmail.com"
+                  />
+                </div>
+
+                <div class="field">
+                  <div class="field-label">顯示名稱（選填）</div>
+                  <input class="field-input" v-model="memberForm.displayName" placeholder="例如：燁姍" />
+                </div>
+              </div>
+
+              <div
+                class="option-row"
+                :class="{ active: memberForm.canWrite }"
+                @click="memberForm.canWrite = !memberForm.canWrite"
+              >
+                <div class="option-text">
+                  允許寫入
+                  <div class="option-sub">
+                    可新增 / 修改 / 刪除 / 上傳
+                  </div>
+                </div>
+
+                <input
+                  type="checkbox"
+                  v-model="memberForm.canWrite"
+                  @click.stop
+                />
+              </div>
+
+
+              <div class="row-right" style="margin-top:12px; gap:10px;">
+                <button class="btn btn-secondary" type="button" @click="closeMemberInviteModal">
+                  關閉
+                </button>
+                <button class="btn btn-primary" type="button" @click="inviteMemberByEmail">
+                  送出邀請
+                </button>
+              </div>
+
+              <div class="modal-hint">
+                提示：對方用同一個 Email 以 Google 登入後，會自動加入成員。
+              </div>
             </div>
           </div>
+
+
 
           <!-- 成員清單 -->
           <div class="card">
             <div class="card-title">成員列表（{{ members.length }}）</div>
 
-            <div class="member-list">
-              <div v-for="m in members" :key="m.uid" class="member-row">
-                <div class="member-main">
-                  <div class="member-name">
+          <div class="member-list">
+            <div v-for="m in members" :key="m.uid" class="member-row">
+              <!-- 上排：左（頭像+名字） / 右（可讀/可讀寫切換） -->
+              <div class="member-top">
+                <div class="member-name">
+                  <span class="member-avatar" aria-hidden="true">
+                    <img
+                      v-if="memberAvatarUrl(m)"
+                      class="member-avatar-img"
+                      :src="memberAvatarUrl(m)"
+                      :alt="(m.displayName || 'member') + ' avatar'"
+                      loading="lazy"
+                      referrerpolicy="no-referrer"
+                    />
+                    <span v-else class="member-avatar-fallback">{{ memberAvatarLetter(m) }}</span>
+                  </span>
+
+                  <span class="member-name-text">
                     {{ m.displayName || "（未命名）" }}
-                    <span v-if="m.role === 'owner'" class="badge">owner</span>
-                  </div>
-                  <div class="member-meta">
-                    <div class="mono">{{ m.uid }}</div>
-                    <div class="perm">{{ m.canWrite ? "可寫" : "只讀" }}</div>
-                  </div>
+                  </span>
+
+                  <span v-if="m.role === 'owner'" class="badge badge-owner">👑 Owner</span>
                 </div>
 
-                <div class="member-actions" v-if="isOwner">
-                  <button class="btn btn-secondary" @click="toggleMemberWrite(m)" type="button">
-                    切換{{ m.canWrite ? "只讀" : "可寫" }}
-                  </button>
-
-                  <button class="btn btn-danger" @click="removeMember(m)" type="button">
-                    刪除
+                
+                <!-- ✅ 右側切換：永遠顯示；任何人都可按（會跳密碼） -->
+                <div class="perm-toggle">
+                  <button
+                    class="toggle-switch"
+                    type="button"
+                    :class="{ on: !!m.canWrite }"
+                    role="switch"
+                    :aria-checked="!!m.canWrite"
+                    @click="requestToggleMemberWrite(m)"
+                  >
+                    <span class="toggle-track">
+                      <span class="toggle-knob"></span>
+                    </span>
+                    <span class="toggle-label">{{ m.canWrite ? "可讀寫" : "可讀" }}</span>
                   </button>
                 </div>
+
+
+              </div>
+
+              <!-- 下排：uid + 權限文字 -->
+              <div class="member-meta">
+                <div class="mono">{{ m.uid }}</div>
+                <div class="perm">{{ m.canWrite ? "可讀寫" : "可讀" }}</div>
+              </div>
+
+              <!-- 刪除：維持只有 owner 可見 -->
+              <div class="member-actions" v-if="isOwner">
+                <button class="btn btn-danger" @click="removeMember(m)" type="button" :disabled="m.role === 'owner'">
+                  刪除
+                </button>
               </div>
             </div>
           </div>
+
+
+
+          </div>
         </div>
+        <!-- ✅ 成員權限切換：密碼 Modal -->
+        <div v-if="memberPermModal.open" class="modal-overlay" @click.self="closeMemberPermModal">
+          <div class="modal">
+            <div class="modal-title">🔒 輸入密碼</div>
+            <div class="modal-subtitle">
+              輸入密碼後才可切換「可讀 / 可讀寫」
+            </div>
+
+            <div class="form-grid" style="margin-top:10px;">
+              <label class="field">
+                <div class="field-label">密碼</div>
+                <input
+                  class="field-input"
+                  v-model="memberPermModal.pin"
+                  type="password"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  maxlength="8"
+                  placeholder="請輸入密碼"
+                />
+              </label>
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn btn-ghost" type="button" @click="closeMemberPermModal">取消</button>
+              <button class="btn btn-primary" type="button" @click="confirmMemberPermChange">確認切換</button>
+            </div>
+          </div>
+        </div>
+
+
       </section>
 
 
@@ -2121,6 +2235,16 @@ const isOwner = computed(() => {
   return myMember.value?.role === "owner";
 });
 
+function canToggleMember(m) {
+  if (!user.value?.uid || !m?.uid) return false;
+
+  // owner：可切換任何成員（但 owner 自己不給關閉寫入）
+  if (isOwner.value) return m.role !== "owner";
+
+  // 非 owner：只能切換自己
+  return m.uid === user.value.uid;
+}
+
 
 /* ===================== Members list（供 UI 成員 chips；只在成員狀態下載入） ===================== */
 const members = ref([]); // [{ uid, displayName }]
@@ -2151,6 +2275,7 @@ function startMembersListener() {
         return {
           uid: d.id,
           displayName: x.displayName || "",
+          photoURL: x.photoURL || x.photoUrl || "",
           canWrite: (x.canWrite === undefined) ? true : !!x.canWrite, // 相容舊資料
           role: x.role || "member",
         };
@@ -2250,51 +2375,105 @@ function unsubscribePresence() {
 }
 
 const memberForm = ref({
-  uid: "",
+  email: "",
   displayName: "",
   canWrite: true,
 });
 
-async function addMember() {
+const memberInviteModal = ref({ open: false });
+
+function openMemberInviteModal() {
   if (!isOwner.value) return alert("只有 owner 可以新增/管理成員。");
-  const uid = String(memberForm.value.uid || "").trim();
-  if (!uid) return alert("請輸入 uid。");
+  memberInviteModal.value.open = true;
+}
+
+function closeMemberInviteModal() {
+  memberInviteModal.value.open = false;
+  // 順便清掉表單，避免下次打開還殘留
+  memberForm.value = { email: "", displayName: "", canWrite: true };
+}
+
+
+
+// owner：用 Email 建立邀請（對方登入後自動加入）
+async function inviteMemberByEmail() {
+  if (!isOwner.value) return alert("只有 owner 可以新增/管理成員。");
+
+  const emailKey = String(memberForm.value.email || "").trim().toLowerCase();
+  if (!emailKey) return alert("請輸入 email。");
+
+  // 非必要，但可避免輸入怪字元
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailKey)) {
+    return alert("Email 格式看起來不正確。");
+  }
 
   const payload = {
-    uid,
+    email: emailKey,
     displayName: String(memberForm.value.displayName || "").trim(),
     canWrite: !!memberForm.value.canWrite,
     role: "member",
     updatedAt: serverTimestamp(),
+    createdAt: serverTimestamp(),
   };
 
   try {
-    await setDoc(doc(db, "trips", DEFAULT_TRIP_ID, "members", uid), payload, { merge: true });
-    memberForm.value = { uid: "", displayName: "", canWrite: true };
-    alert("新增/更新成員成功！");
+    await setDoc(
+      doc(db, "trips", DEFAULT_TRIP_ID, "invites", emailKey),
+      payload,
+      { merge: true }
+    );
+
+    closeMemberInviteModal();
+    alert("已送出邀請！對方用同 Email 登入後會自動加入。");
   } catch (e) {
-    console.error("addMember 失敗：", e);
-    alert("新增失敗（可能是 rules 不允許 / 網路問題）");
+    console.error("inviteMemberByEmail 失敗：", e);
+    alert("邀請失敗（可能是 rules 不允許 / 網路問題）");
   }
 }
 
-async function toggleMemberWrite(m) {
-  if (!isOwner.value) return alert("只有 owner 可以管理成員權限。");
-  if (!m?.uid) return;
+// 登入時：如果此 Email 有邀請，則自動加入 members 並刪除 invite
+async function tryClaimInviteOnLogin() {
+  const u = user.value;
+  if (!u?.uid) return;
 
-  // 不允許把 owner 改成只讀（避免把自己鎖死）
-  if (m.role === "owner") return alert("owner 權限不可關閉寫入。");
+  const emailKey = String(u.email || "").trim().toLowerCase();
+  if (!emailKey) return;
 
   try {
-    await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, "members", m.uid), {
-      canWrite: !m.canWrite,
+    // 已經是 member 就不用做
+    const myMemberRef = doc(db, "trips", DEFAULT_TRIP_ID, "members", u.uid);
+    const myMemberSnap = await getDoc(myMemberRef);
+    if (myMemberSnap.exists()) return;
+
+    // 查 invite
+    const invRef = doc(db, "trips", DEFAULT_TRIP_ID, "invites", emailKey);
+    const invSnap = await getDoc(invRef);
+    if (!invSnap.exists()) return;
+
+    const inv = invSnap.data() || {};
+
+    // 建立 members/{uid}
+    await setDoc(myMemberRef, {
+      uid: u.uid,
+      displayName: inv.displayName || u.displayName || "",
+      canWrite: inv.canWrite === false ? false : true,
+      role: "member",
       updatedAt: serverTimestamp(),
-    });
+      joinedAt: serverTimestamp(),
+    }, { merge: true });
+
+    // 刪掉 invite（避免重複加入）
+    await deleteDoc(invRef);
+
+    console.log("[INVITE] claimed by", emailKey);
   } catch (e) {
-    console.error("toggleMemberWrite 失敗：", e);
-    alert("更新失敗（可能是 rules 不允許 / 網路問題）");
+    console.warn("[INVITE] claim failed:", e);
   }
 }
+
+
+
+
 
 async function removeMember(m) {
   if (!isOwner.value) return alert("只有 owner 可以刪除成員。");
@@ -2302,6 +2481,11 @@ async function removeMember(m) {
 
   if (m.role === "owner") return alert("不能刪除 owner。");
   if (m.uid === user.value?.uid) return alert("不能刪除自己（避免把自己踢出去）。");
+
+  // ✅ 密碼保護（8273）
+  const pw = prompt("請輸入密碼以刪除成員：");
+  if (pw === null) return; // 取消
+  if (String(pw).trim() !== "8273") return alert("密碼錯誤，取消刪除。");
 
   if (!confirm(`確定要刪除成員：${m.displayName || m.uid}？`)) return;
 
@@ -2315,6 +2499,80 @@ async function removeMember(m) {
 }
 
 
+const memberPermModal = ref({
+  open: false,
+  target: null,     // 目標 member 物件
+  nextCanWrite: false,
+  pin: "",
+});
+
+function openMemberPermModal(m) {
+  memberPermModal.value.open = true;
+  memberPermModal.value.target = m;
+  memberPermModal.value.nextCanWrite = !m?.canWrite;
+  memberPermModal.value.pin = "";
+}
+
+function closeMemberPermModal() {
+  memberPermModal.value.open = false;
+  memberPermModal.value.target = null;
+  memberPermModal.value.pin = "";
+}
+
+function requestToggleMemberWrite(m) {
+  if (!m?.uid) return;
+  if (!user.value?.uid) return alert("請先登入。");
+
+  // owner 不允許被關閉（避免把 owner 鎖死）
+  if (m.role === "owner") return alert("owner 權限不可切換。");
+
+  // ✅ 你要求「無論是否 owner 都能按」：按了就跳 modal
+  // 但為了不讓非 owner 去改別人的權限（會被 rules 擋住），這裡做 UX 防呆：
+  if (!isOwner.value && m.uid !== user.value.uid) {
+    return alert("你只能切換自己的權限。");
+  }
+
+  openMemberPermModal(m);
+}
+
+async function confirmMemberPermChange() {
+  const pin = String(memberPermModal.value.pin || "").trim();
+  if (pin !== "8273") return alert("密碼錯誤，取消切換。");
+
+  const m = memberPermModal.value.target;
+  if (!m?.uid) return;
+
+  const nextCanWrite = !!memberPermModal.value.nextCanWrite;
+
+  try {
+    await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, "members", m.uid), {
+      canWrite: nextCanWrite,
+      updatedAt: serverTimestamp(),
+    });
+
+    closeMemberPermModal();
+    alert(`已切換為：${nextCanWrite ? "可讀寫" : "可讀"} ✅`);
+  } catch (e) {
+    console.error("confirmMemberPermChange 失敗：", e);
+    alert("更新失敗（可能是 rules 不允許 / 網路問題）");
+  }
+}
+
+
+
+
+
+function memberAvatarUrl(m) {
+  // 兼容不同欄位命名（你之後若想存 photoURL 進 members doc，也可直接用）
+  return String(m?.photoURL || m?.photoUrl || "").trim();
+}
+
+function memberAvatarLetter(m) {
+  const name = String(m?.displayName || "").trim();
+  if (name) return name.slice(0, 1);
+  const uid = String(m?.uid || "").trim();
+  return uid ? uid.slice(0, 1).toUpperCase() : "M";
+}
 
 
 
@@ -3120,6 +3378,9 @@ onMounted(async () => {
     subscribePresence();
     await upsertPresence();
     startHeartbeat();
+
+    // ✅ 先嘗試吃邀請（用 Email 自動加入）
+    await tryClaimInviteOnLogin();
 
     await checkMembership();
     // ✅ 重要：登入且通過 members 檢查後，重新讀取 plan（避免初次未登入讀取失敗後一直為空）
