@@ -1896,7 +1896,7 @@
         <div v-if="!membershipChecked" class="empty-state">檢查權限中...</div>
 
         <div v-else class="member-panel">
-            <div class="row-right" style="margin-top:10px;">
+            <div class="row-right" style="margin-top:10px; margin-bottom:10px;">
               <button class="btn btn-primary" type="button" @click="openMemberInviteModal">
                 新增
               </button>
@@ -1961,6 +1961,27 @@
               <div class="modal-hint">
                 提示：對方用同一個 Email 以 Google 登入後，會自動加入成員。
               </div>
+
+              <div v-if="invites.length" class="invite-box">
+                
+              <div class="invite-title">待加入邀請（{{ invites.length }}）</div>
+
+              <div class="invite-list">
+                <div v-for="inv in invites" :key="inv.id" class="invite-row">
+                  <div class="invite-main">
+                    <div class="invite-email">{{ inv.email }}</div>
+                    <div class="invite-sub">
+                      {{ inv.displayName || "（未命名）" }} · {{ inv.canWrite ? "可寫入" : "只讀" }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="hint">
+                這裡顯示的是 trips/{{ DEFAULT_TRIP_ID }}/invites。對方登入後會自動加入 members。
+              </div>
+            </div>
+
             </div>
           </div>
 
@@ -2248,6 +2269,46 @@ function canToggleMember(m) {
 
 /* ===================== Members list（供 UI 成員 chips；只在成員狀態下載入） ===================== */
 const members = ref([]); // [{ uid, displayName }]
+// ✅ 待加入邀請清單（invites）
+const invites = ref([]); // [{ id(email), email, displayName, canWrite, createdAtMs }]
+let invitesUnsub = null;
+
+function startInvitesListener() {
+  if (invitesUnsub) return;
+
+  const qy = query(
+    collection(db, "trips", DEFAULT_TRIP_ID, "invites"),
+    orderBy("createdAt", "desc")
+  );
+
+  invitesUnsub = onSnapshot(
+    qy,
+    (snap) => {
+      invites.value = snap.docs.map((d) => {
+        const data = d.data() || {};
+        return {
+          id: d.id,
+          email: data.email || d.id,
+          displayName: data.displayName || "",
+          canWrite: !!data.canWrite,
+          createdAtMs: data.createdAt?.toMillis ? data.createdAt.toMillis() : 0,
+        };
+      });
+    },
+    (err) => {
+      console.warn("invites 監聽失敗：", err);
+      invites.value = [];
+    }
+  );
+}
+
+function stopInvitesListener() {
+  try { if (invitesUnsub) invitesUnsub(); } catch (_) {}
+  invitesUnsub = null;
+  invites.value = [];
+}
+
+
 const memberChips = computed(() => {
   const names = members.value
     .map((m) => String(m.displayName || "").trim())
@@ -2427,8 +2488,9 @@ async function inviteMemberByEmail() {
     alert("已送出邀請！對方用同 Email 登入後會自動加入。");
   } catch (e) {
     console.error("inviteMemberByEmail 失敗：", e);
-    alert("邀請失敗（可能是 rules 不允許 / 網路問題）");
+    alert(`邀請失敗：${e?.code || ""}\n${e?.message || String(e)}`);
   }
+
 }
 
 // 登入時：如果此 Email 有邀請，則自動加入 members 並刪除 invite
@@ -3363,7 +3425,7 @@ onMounted(async () => {
     if (!user.value) {
       stopHeartbeat();
       unsubscribePresence();
-
+      stopInvitesListener();
       membershipChecked.value = true;
       isMember.value = false;
 
@@ -3404,14 +3466,20 @@ onMounted(async () => {
     if (isMember.value) {
       startMembersListener();
 
+      // ✅ 只有 owner 才需要看邀請清單
+      if (isOwner.value) startInvitesListener();
+      else stopInvitesListener();
+
       const me = userLabel.value;
       uiMember.value = memberChips.value.includes(me) ? me : memberChips.value[0] || me;
     } else {
       stopMembersListener();
+      stopInvitesListener();
       members.value = [];
 
       if (accountingTab.value === "entry") accountingTab.value = "detail";
     }
+
 
   } catch (e) {
     // ✅ 關鍵：如果登入後任何一段 throw，你之前加在下面的 log 就永遠看不到
