@@ -75,6 +75,37 @@ body{
   color:#fff;
 }
 
+/* ✅ 今天（未選中）：淡黃色提示 + 小徽章 */
+.day-chip.today:not(.active){
+  border-color: rgba(255, 193, 7, .55);
+  background: rgba(255, 193, 7, .18);
+}
+
+/* ✅ 今天徽章（右上角） */
+.day-chip.today{
+  position: relative;
+}
+.day-chip.today::after{
+  content: "Today";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 193, 7, .92);
+  color: rgba(0,0,0,.85);
+}
+
+/* ✅ 今天且被選中：藍底上也要看得出來（加一圈亮邊） */
+.day-chip.today.active{
+  box-shadow: 0 0 0 2px rgba(255, 193, 7, .75) inset;
+}
+.day-chip.today.active::after{
+  background: rgba(255,255,255,.92);
+}
+
 .chip-top{ font-size:11px; font-weight:800; opacity:.9; }
 .chip-date{ margin-top:6px; font-size:18px; font-weight:900; line-height:1; }
 .chip-weekday{ margin-top:6px; font-size:12px; opacity:.85; }
@@ -632,6 +663,10 @@ body{
 
 .acc-input{
   width:100%;
+  box-sizing:border-box;
+  max-width:100%;
+  min-width:0;
+
   border-radius:14px;
   border:2px solid rgba(0,0,0,.10);
   padding:12px 12px;
@@ -641,11 +676,26 @@ body{
   background:rgba(255,255,255,.9);
 }
 
+/* ✅ iOS/手機：date/time 常有內建最小寬度，強制不要撐出畫面 */
+.acc-input[type="date"],
+.acc-input[type="time"]{
+  min-width:0;
+  max-width:100%;
+}
+
+
+
 .acc-grid-2{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
   gap:10px;
 }
+
+/* ✅ 讓 grid 子項目允許縮到欄寬內（避免被 input 最小寬度撐爆） */
+.acc-grid-2 > *{
+  min-width:0;
+}
+
 
 .acc-pills{ display:flex; gap:10px; flex-wrap:wrap; }
 .acc-pill{

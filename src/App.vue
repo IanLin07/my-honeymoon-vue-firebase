@@ -61,7 +61,8 @@
             v-for="day in plan"
             :key="day.id"
             class="day-chip"
-            :class="{ active: activeDayId === day.id }"
+            :class="{ active: activeDayId === day.id, today: isToday(day.date) }"
+            :ref="(el) => setDayChipEl(day.id, el)"
             @click="selectDay(day.id)"
 
           >
@@ -2793,7 +2794,8 @@ function bookingStayPerPersonPerNight(b) {
 }
 
 
-const backupTab = ref("food"); // food | snacks | beauty | places
+const backupTab = ref("snacks"); // food | snacks | beauty | places
+
 
 // ✅ 零食/美妝：當前是哪一個分頁（共用同一套 UI 與上傳邏輯）
 const snackLikeKind = computed(() => (backupTab.value === "beauty" ? "beauty" : "snacks"));
@@ -3322,6 +3324,11 @@ function goPage(page) {
   }
 
   currentPage.value = next;
+  // ✅ 每次切到行程頁：若 plan 內含「今天日期」，自動跳到今天
+  if (next === "itinerary") {
+    // plan 可能還沒載完：先試一次；沒有就掛起來等 plan 有資料再跳
+    pendingAutoJumpToToday.value = !autoSelectTodayDayIfExists();
+  }
 
   // 3) 切頁後：等 DOM 更新完成再置頂（不新增新函式，直接呼叫你原本已存在的 scrollToTopNow）
   nextTick(() => {
@@ -3604,6 +3611,79 @@ function exportItineraryJson() {
 }
 
 const activeDayId = ref(null);
+
+// ===================== Day Tabs：自動置中 & Today 標示 =====================
+const dayChipElMap = new Map();
+
+function setDayChipEl(dayId, el) {
+  if (!dayId) return;
+  if (el) dayChipElMap.set(dayId, el);
+  else dayChipElMap.delete(dayId);
+}
+
+
+
+function isToday(dateStr) {
+  return (dateStr || "") === taipeiTodayYMD();
+}
+
+function scrollDayChipIntoCenter(dayId) {
+  const el = dayChipElMap.get(dayId);
+  if (!el) return;
+
+  const container = el.closest(".day-tabs");
+  if (!container) {
+    // fallback
+    el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    return;
+  }
+
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const behavior = reduced ? "auto" : "smooth";
+
+  const cRect = container.getBoundingClientRect();
+  const eRect = el.getBoundingClientRect();
+  const delta = (eRect.left + eRect.width / 2) - (cRect.left + cRect.width / 2);
+
+  container.scrollBy({ left: delta, behavior });
+}
+
+
+const pendingAutoJumpToToday = ref(false);
+
+function taipeiTodayYMD() {
+  // ✅ 固定用 Asia/Taipei，避免使用者裝置時區不同造成日期偏差
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const y = parts.find((p) => p.type === "year")?.value || "";
+  const m = parts.find((p) => p.type === "month")?.value || "";
+  const d = parts.find((p) => p.type === "day")?.value || "";
+  return `${y}-${m}-${d}`;
+}
+
+
+
+
+
+function autoSelectTodayDayIfExists() {
+  const today = taipeiTodayYMD();
+  const hit = (plan.value || []).find((day) => (day?.date || "") === today);
+  if (!hit) return false;
+
+  activeDayId.value = hit.id;
+  nextTick(() => {
+    requestAnimationFrame(() => scrollDayChipIntoCenter(hit.id));
+  });
+
+  return true;
+}
+
+
 const planLoading = ref(false);
 // ===================== Mobile UX：切換天數回到頂端 =====================
 const appMainEl = ref(null);
@@ -3625,7 +3705,13 @@ function scrollToTopSmart() {
 
 function selectDay(dayId) {
   activeDayId.value = dayId;
+
+  // ✅ 切換 day tab 時，把該顆 chip 捲到畫面中間（手機很好用）
+  nextTick(() => {
+    requestAnimationFrame(() => scrollDayChipIntoCenter(dayId));
+  });
 }
+
 
 // ✅ 避免初次 loadPlan 設定 activeDayId 時也觸發（只針對「切換」）
 let didInitDayScroll = false;
@@ -3641,6 +3727,15 @@ watch(activeDayId, () => {
   // 等畫面完成切換後再回頂端（避免切換瞬間抖動）
   requestAnimationFrame(() => scrollToTopSmart());
 });
+
+watch([plan, currentPage], () => {
+  if (currentPage.value !== "itinerary") return;
+  if (!pendingAutoJumpToToday.value) return;
+
+  const ok = autoSelectTodayDayIfExists();
+  if (ok) pendingAutoJumpToToday.value = false;
+});
+
 
 /* ===================== Day swipe：左右滑切換天數 ===================== */
 // ✅ 只要「水平位移夠大」且「垂直位移不大」，就視為左右滑；避免下滑誤觸切天數
@@ -5666,7 +5761,7 @@ async function deleteExpense() {
     await deleteDoc(refDoc);
     await reloadExpenses();
     closeExpenseEditor();
-    alert("已刪除！");
+    
   } catch (e) {
     console.error("刪除記帳失敗：", e);
     alert("刪除失敗（多半是 rules 目前不允許 delete）");
@@ -5748,7 +5843,7 @@ async function savePrepEditor() {
     });
 
     closePrepEditor();
-    alert("儲存成功！");
+    
   } catch (e) {
     console.error("儲存準備項目失敗：", e);
     alert(`儲存失敗：${e?.message || e}`);
@@ -5766,7 +5861,7 @@ async function deletePrepFromEditor() {
     await deleteDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, prepEditor.value.originId));
 
     closePrepEditor();
-    alert("已刪除！");
+    
   } catch (e) {
     console.error("刪除準備項目失敗：", e);
     alert("刪除失敗（多半是 rules 目前不允許 delete）");
