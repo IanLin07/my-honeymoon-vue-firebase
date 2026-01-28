@@ -217,16 +217,18 @@
                       📝
                     </button>
                   </div>
+                </div>
 
-
-
+                <!-- ✅ 收合筆記：放在 event-row 後面 => 寬度會吃到整張卡片（包含按鈕下方） -->
+                <div v-if="noteExists(event) && !event.showNote" class="note-between">
+                  <div class="note-between-body">{{ event.note }}</div>
                 </div>
 
                 <div v-if="event.showNote" class="note-panel">
                   <textarea
                     v-model="event.note"
                     class="note-textarea"
-                    placeholder="輸入筆記..."
+                    placeholder="輸入筆記."
                     :disabled="!canWrite"
                   ></textarea>
 
@@ -256,11 +258,10 @@
                     只讀模式：筆記可看但不可改。
                   </div>
                 </div>
+
               </div>
 
-              <div v-if="noteExists(event) && !event.showNote" class="note-between">
-                <div class="note-between-body">{{ event.note }}</div>
-              </div>
+
             </div>
           </div>
 

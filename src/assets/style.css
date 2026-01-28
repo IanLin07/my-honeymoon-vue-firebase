@@ -359,6 +359,20 @@ body{
   white-space:pre-wrap;
 }
 
+/* ✅ 行程卡片內：收合筆記延展到按鈕下方 */
+.event-card .note-between{
+  margin-top: 8px;
+}
+
+.event-card .note-between-body{
+  padding: 10px 12px;
+  border-radius: 16px;
+  box-sizing: border-box;
+}
+
+
+
+
 /* =============== Cards / forms =============== */
 .card{
   background:#fff;
@@ -1930,10 +1944,7 @@ body{
   box-sizing: border-box;
 }
 
-.note-between-body {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
+
 
 /* 住宿卡片：訂位碼 + 憑證同列（訂位碼在左、憑證在右） */
 .stay-hero-top{
