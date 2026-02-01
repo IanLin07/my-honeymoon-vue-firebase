@@ -384,26 +384,72 @@ body{
 .card-title{ font-size:16px; font-weight:1000; }
 .card-subtitle{ margin-top:6px; font-size:12px; opacity:.7; font-weight:700; line-height:1.35; }
 
-.form-grid{ margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.form-grid{
+  margin-top:12px;
+  display:grid;
+
+  /* ✅ iOS：讓欄位可以縮到欄寬內，避免 time/date/select 撐爆 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
+  gap:10px;
+}
+
+/* ✅ Grid 子項目允許縮（iOS 必備） */
+.form-grid > *{
+  min-width: 0;
+}
+
+
 .field{ display:block; }
 .field-span{ grid-column:1 / -1; }
 .field-label{ font-size:12px; font-weight:900; opacity:.75; margin-bottom:6px; }
+
+
 .field-input{
   width:100%;
+  box-sizing:border-box;
+  max-width:100%;
+  min-width:0;
+
   border-radius:14px;
   border:2px solid rgba(0,0,0,.06);
-  padding:10px;
+  padding:10px 12px;
+
   font-size:13px;
+  line-height:22px;  /* ✅ iOS：避免文字上下被裁切 */
   outline:none;
   background:#fff;
 }
+
+/* ✅ 統一 input / select 高度（iOS 尤其重要） */
+.field-input:not(textarea){
+  height: 46px;
+}
+
+/* ✅ iOS 的 date/time 內建樣式最容易造成高度不一致 */
+.field-input[type="date"],
+.field-input[type="time"]{
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+
 .row-right{ margin-top:12px; display:flex; gap:10px; justify-content:flex-end; }
 
 .stay-grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
+
+  /* ✅ iOS：select 會有內建最小寬度，minmax 才不會撐爆 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+
   gap:10px;
+  align-items: stretch; /* ✅ 讓兩個 select 高度一致 */
 }
+
+.stay-grid > *{
+  min-width: 0;
+}
+
 
 
 
@@ -695,7 +741,16 @@ body{
 .acc-input[type="time"]{
   min-width:0;
   max-width:100%;
+
+  /* ✅ iOS：避免文字上下被裁切（你截圖的「被吃邊界」） */
+  height: 46px;
+  line-height: 22px;
+
+  /* ✅ iOS 對 date/time 的內建外觀常造成高度不一致 */
+  -webkit-appearance: none;
+  appearance: none;
 }
+
 
 /* ✅ 記帳：日期欄位外層也要能縮，避免 iOS date input 撐爆 */
 .acc-date{
