@@ -1067,6 +1067,41 @@ body{
   flex-wrap:wrap;
 }
 
+/* ✅ Backup：標題左側勾選 */
+.backup-head-left{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  flex:1;
+  min-width:0;
+}
+
+.backup-check{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  flex:0 0 28px;
+
+  /* ❌ 移除外框與背景 */
+  border:none;
+  background:transparent;
+}
+
+
+.backup-check-input{
+  width:18px;
+  height:18px;
+}
+
+/* ✅ 勾選後：淡化但仍清楚可讀 */
+.backup-title.is-done{
+  opacity:.55;
+  text-decoration: line-through;
+}
+
+
 .backup-pills{
   max-width: 100%;
 }

@@ -1537,86 +1537,31 @@
         @touchend="onBackupSwipeEnd($event)"
       >
 
-        <div class="segmented segmented-5 backup-sticky">
-          <button class="seg-btn" :class="{ active: backupTab === 'snacks' }" @click="backupTab='snacks'" type="button">
-            🍫 零食
-          </button>
+      <div class="segmented segmented-3 backup-sticky">
+        <button class="seg-btn" :class="{ active: backupTab === 'snacks' }" @click="backupTab='snacks'" type="button">
+          🍫 零食
+        </button>
 
-          <button class="seg-btn" :class="{ active: backupTab === 'beauty' }" @click="backupTab='beauty'" type="button">
-            💄 美妝
-          </button>
+        <button class="seg-btn" :class="{ active: backupTab === 'beauty' }" @click="backupTab='beauty'" type="button">
+          💄 美妝
+        </button>
 
-          <button class="seg-btn" :class="{ active: backupTab === 'shopping' }" @click="backupTab='shopping'" type="button">
-            🛍️ 購物
-          </button>
+        <button class="seg-btn" :class="{ active: backupTab === 'shopping' }" @click="backupTab='shopping'" type="button">
+          🛍️ 購物
+        </button>
+      </div>
 
-          <button class="seg-btn" :class="{ active: backupTab === 'food' }" @click="backupTab='food'" type="button">
-            🍜 美食
-          </button>
-
-          <button class="seg-btn" :class="{ active: backupTab === 'places' }" @click="backupTab='places'" type="button">
-            📍 地點
-          </button>
-        </div>
 
       <!-- ===== 購物（從準備頁移到備用頁；沿用 trips/{tripId}/prep_shopping） ===== -->
 
 
 
 
-        <!-- ===== 美食 ===== -->
-        <div v-if="backupTab === 'food'" class="card">
 
-
-
-          <div class="row-right" style="margin-top:10px;">
-            <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('food', null)">新增</button>
-            <div v-else class="readonly-hint">只讀模式：登入且在 members 才能新增/編輯。</div>
-          </div>
-
-          <div v-if="backup.food.loading" class="empty-state">讀取中...</div>
-          <div v-else-if="backup.food.error" class="empty-state">讀取失敗：{{ backup.food.error }}</div>
-
-          <div v-else-if="!backup.food.items.length" class="empty-state">
-            尚未建立美食口袋名單。
-          </div>
-
-          <div v-else class="list">
-            <div
-              v-for="it in backup.food.items"
-              :key="it.id"
-              class="backup-card"
-              @click="openBackupEditor('food', it)"
-            >
-              <div class="backup-head">
-                <div class="backup-title">{{ it.title || '（未命名）' }}</div>
-
-                <div class="backup-pills">
-                  <button
-                    class="btn btn-secondary btn-mini"
-                    type="button"
-                    @click.stop="openNavigation(it.mapQuery || it.title)"
-                  >
-                    📍
-                  </button>
-                </div>
-
-              </div>
-
-
-
-              <div class="backup-field">
-                <div class="bf-line1 muted">備註</div>
-                <div class="bf-line2">{{ it.note || '—' }}</div>
-              </div>
-            </div>
-
-          </div>
-        </div>
 
         
         <!-- ===== 零食 / 美妝（同功能） ===== -->
-        <div v-else-if="backupTab === 'snacks' || backupTab === 'beauty' || backupTab === 'shopping'" class="card">
+        <div v-if="backupTab === 'snacks' || backupTab === 'beauty' || backupTab === 'shopping'" class="card">
 
           <div class="row-right" style="margin-top:10px;">
             <!-- ✅ 切換按鈕：清單 / 圖片庫 -->
@@ -1651,13 +1596,27 @@
           <!-- ✅ 清單模式 -->
           <div v-else-if="!snackGalleryMode" class="list">
             <div
-              v-for="it in backup[snackLikeKind].items"
+              v-for="it in snackLikeSortedItems"
               :key="it.id"
               class="backup-card"
               @click="openBackupEditor(snackLikeKind, it)"
             >
               <div class="backup-head">
-                <div class="backup-title">{{ it.title || '（未命名）' }}</div>
+                <div class="backup-head-left">
+                  <!-- ✅ 勾選（點這裡不會打開編輯） -->
+                  <label class="backup-check" @click.stop>
+                    <input
+                      class="backup-check-input"
+                      type="checkbox"
+                      :checked="!!it.done"
+                      @change.stop="toggleBackupDone(snackLikeKind, it, $event)"
+                    />
+                  </label>
+
+                  <div class="backup-title" :class="{ 'is-done': !!it.done }">
+                    {{ it.title || '（未命名）' }}
+                  </div>
+                </div>
 
                 <div class="backup-pills">
                   <!-- ✅ 有上傳圖片才顯示，點了開圖片 -->
@@ -1673,6 +1632,7 @@
                 </div>
               </div>
 
+
               <!-- ✅ 備註 -->
               <div v-if="(it.note || '').trim()" class="backup-note">
                 {{ it.note }}
@@ -1687,7 +1647,7 @@
             </div>
 
             <button
-              v-for="it in snackLikePhotoItems"
+              v-for="it in snackLikePhotoItemsSorted"
               :key="it.id"
               type="button"
               class="snack-thumb"
@@ -1705,60 +1665,7 @@
 
 
 
-        <!-- ===== 地點 ===== -->
-        <div v-else class="card">
 
-
-
-          <div class="row-right" style="margin-top:10px;">
-            <button class="btn btn-primary" v-if="canWrite" @click="openBackupEditor('places', null)">新增</button>
-            <div v-else class="readonly-hint">只讀模式：登入且在 members 才能新增/編輯。</div>
-          </div>
-
-          <div v-if="backup.places.loading" class="empty-state">讀取中...</div>
-          <div v-else-if="backup.places.error" class="empty-state">讀取失敗：{{ backup.places.error }}</div>
-
-          <div v-else-if="!backup.places.items.length" class="empty-state">
-            尚未建立地點口袋名單。
-          </div>
-
-          <div v-else class="list">
-            <div
-              v-for="it in backup.places.items"
-              :key="it.id"
-              class="backup-card"
-              @click="openBackupEditor('places', it)"
-            >
-              <div class="backup-head">
-                <div class="backup-title">{{ it.title || '（未命名）' }}</div>
-
-                <div class="backup-pills">
-                  <button
-                    class="btn btn-secondary btn-mini"
-                    type="button"
-                    @click.stop="openNavigation(it.mapQuery || it.title)"
-                  >
-                    📍
-                  </button>
-                </div>
-              </div>
-
-              <!-- ✅ 營業時間：標題下方、地址上方（但我們會移除地址欄位，所以就放在標題下方即可） -->
-              <div v-if="(it.hours || '').trim()" class="backup-subline">
-                ⏰ {{ it.hours }}
-              </div>
-
-
-
-
-              <div class="backup-field">
-                <div class="bf-line1 muted">備註</div>
-                <div class="bf-line2">{{ it.note || '—' }}</div>
-              </div>
-            </div>
-
-          </div>
-        </div>
 
         <!-- ===== 備用 Modal：新增/編輯 ===== -->
         <div v-if="backupEditor.open" class="modal-overlay" @click.self="closeBackupEditor">
@@ -3018,6 +2925,34 @@ const snackLikePhotoItems = computed(() => {
   return items.filter((it) => Boolean(it.photoUrl));
 });
 
+// ✅ 依 done 排序：未勾選在上、已勾選在下；同組內用 createdAt 新到舊
+function sortBackupByDone(items) {
+  const toMs = (t) => (t && typeof t.toMillis === "function" ? t.toMillis() : 0);
+
+  return [...items].sort((a, b) => {
+    const ad = !!a.done;
+    const bd = !!b.done;
+    if (ad !== bd) return ad ? 1 : -1; // done=true 往下
+    return toMs(b.createdAt) - toMs(a.createdAt); // 同組內：新到舊
+  });
+}
+
+// ✅ 零食/美妝/購物：清單模式顯示用（會自動把勾選的放到底部）
+const snackLikeSortedItems = computed(() => {
+  const k = snackLikeKind.value;
+  const items = backup.value?.[k]?.items || [];
+  return sortBackupByDone(items);
+});
+
+// ✅ 圖片庫也同樣：勾選的放到底部（可選，但一致性更好）
+const snackLikePhotoItemsSorted = computed(() => {
+  const k = snackLikeKind.value;
+  const items = backup.value?.[k]?.items || [];
+  return sortBackupByDone(items.filter((it) => Boolean(it.photoUrl)));
+});
+
+
+
 // ✅ 離開這三個分頁時，自動回到清單模式
 watch(backupTab, (v) => {
   if (v !== "snacks" && v !== "beauty" && v !== "shopping") snackGalleryMode.value = false;
@@ -3047,9 +2982,10 @@ function backupCollectionKey(kind) {
   if (kind === "food") return "backup_food";
   if (kind === "snacks") return "backup_snacks";
   if (kind === "beauty") return "backup_beauty";
-  if (kind === "shopping") return "backup_shopping"; // ✅ 沿用你原本購物路徑
+  if (kind === "shopping") return "prep_shopping"; // ✅ 修正：購物沿用你原本 trips/{tripId}/prep_shopping
   return "backup_places";
 }
+
 
 
 
@@ -3092,6 +3028,8 @@ function subscribeBackup(kind) {
           photoPath: data.photoPath || "",
           photoName: data.photoName || "",
           photoType: data.photoType || "",
+          // ✅ 勾選狀態（未設定視為 false）
+          done: !!data.done,
         };
       });
 
@@ -3123,11 +3061,11 @@ function subscribeBackupAll() {
   if (unsubBackupBeauty) unsubBackupBeauty();
   if (unsubBackupPlaces) unsubBackupPlaces();
 
-  subscribeBackup("food");
+  
   subscribeBackup("snacks");
   subscribeBackup("beauty");
   subscribeBackup("shopping"); // ✅ 新增
-  subscribeBackup("places");
+  
 }
 
 
@@ -3205,12 +3143,14 @@ function openBackupEditor(kind, itemOrNull) {
       hours: "",
     };
 
-if (kind === "snacks" || kind === "beauty") {
+if (kind === "snacks" || kind === "beauty" || kind === "shopping") {
   snackPhotoFile.value = null;
   snackPhotoProgress.value = 0;
   snackPhotoUploading.value = false;
   snackPhotoFileName.value = "";
+  
 }
+
 
 
     return;
@@ -3335,6 +3275,35 @@ async function deleteBackupItem() {
     alert("刪除失敗（可能是 rules 不允許 delete）");
   }
 }
+
+// ✅ 備用清單（零食/美妝/購物）：勾選後寫回 done，且 UI 會因排序自動移到底部
+async function toggleBackupDone(kind, item, ev) {
+  const checked = !!ev?.target?.checked;
+
+  // 先即時反映在 UI（手感更好）
+  item.done = checked;
+
+  if (!canWrite.value) {
+    // 只讀模式：不允許勾選
+    item.done = !checked;
+    alert("只讀模式無法勾選：請先登入並被加入 members。");
+    return;
+  }
+
+  try {
+    const key = backupCollectionKey(kind);
+    await updateDoc(doc(db, "trips", activeTripId, key, item.id), {
+      done: checked,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error("更新 done 失敗：", e);
+    // 失敗就還原
+    item.done = !checked;
+    alert(`勾選更新失敗：${e?.code || ""} ${e?.message || e}`);
+  }
+}
+
 
 // ✅ Bottom nav 點擊回饋（對應 template 的 :class="{ ..., pulse: navPulse === 'xxx' }"）
 const navPulse = ref("");
@@ -4567,7 +4536,7 @@ function onPrepSwipeEnd(ev) {
   handleSubSwipeEnd(ev, PREP_TABS, prepTab);
 }
 
-const BACKUP_TABS = ["snacks", "beauty", "shopping", "food", "places"];
+const BACKUP_TABS = ["snacks", "beauty", "shopping"];
 function onBackupSwipeEnd(ev) {
   if (backupEditor.value?.open) return;
   handleSubSwipeEnd(ev, BACKUP_TABS, backupTab);
