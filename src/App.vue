@@ -1,7 +1,7 @@
 <template>
   <div class="app-shell">
     <header class="app-header">
-      <div class="app-title"> 廷翰與燁姍的蜜月旅行❤️</div>
+      <div class="app-title"> {{ tripTitle || activeTripId }} </div><!--廷翰與燁姍的蜜月旅行❤️-->
       <div class="app-subtitle">{{ pageTitle }}</div>
 
       <!-- 登入列（僅 Google 登入；未登入＝只讀瀏覽模式） -->
@@ -36,6 +36,15 @@
           <button v-if="!user" class="btn btn-secondary" @click="loginGoogle">Google 登入</button>
           <button v-if="user" class="btn btn-ghost" @click="logout">登出</button>
           <button
+            v-if="user && isMember"
+            class="btn btn-ghost"
+            type="button"
+            @click="openTripModal"
+            title="切換/建立旅程"
+          >
+            旅程
+          </button>
+          <button
             class="btn btn-ghost"
             type="button"
             @click="exportItineraryJson"
@@ -48,6 +57,9 @@
       <!-- 線上成員名單（只有登入才顯示） -->
 
     </header>
+
+
+
 
     <main class="app-main" ref="appMainEl">
 
@@ -95,6 +107,10 @@
                   <div class="weather-city">
                     <span class="pin">📍</span>
                     <span>{{ cityLabel(day.city || getDayCity(day)) }}</span>
+                  </div>
+
+                  <div class="modal-hint" style="margin-top:4px;">
+                    {{ weatherCitySourceLabel(weatherState.citySource) }}（{{ cityLabel(weatherState.cityKey || (day.city || getDayCity(day))) }}）
                   </div>
 
                   <div class="weather-desc">
@@ -273,7 +289,7 @@
         </div>
 
         <div v-if="!planLoading && plan.length === 0" class="empty-state">
-          <div>目前 plan 是空的：trips/{{ DEFAULT_TRIP_ID }}/plan</div>
+          <div>目前 plan 是空的：trips/{{ activeTripId }}/plan</div>
 
           <div v-if="canWrite" style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
             <button class="btn btn-primary btn-mini" @click="initPlanDays()">
@@ -1104,7 +1120,7 @@
               <div class="acc-label">成員</div>
 
               <div v-if="memberChips.length === 0" class="empty-state" style="margin:8px 0 0 0;">
-                尚未取得成員名單（請確認你已在 trips/{{ DEFAULT_TRIP_ID }}/members 內）。
+                尚未取得成員名單（請確認你已在 trips/{{ activeTripId }}/members 內）。
               </div>
 
               <div v-else class="acc-members">
@@ -1405,13 +1421,12 @@
 
 
       <div class="prep-sticky">
-        <div class="segmented segmented-3 backup-sticky">
-
+        <div class="segmented backup-sticky">
           <button class="seg-btn" :class="{ active: prepTab === 'todo' }" @click="prepTab='todo'">✅ 待辦</button>
           <button class="seg-btn" :class="{ active: prepTab === 'luggage' }" @click="prepTab='luggage'">🧳 行李</button>
-          <button class="seg-btn" :class="{ active: prepTab === 'shopping' }" @click="prepTab='shopping'">🛍️ 購物</button>
         </div>
       </div>
+
 
 
       <!-- 共用清單 -->
@@ -1444,6 +1459,7 @@
             <div class="todo">
               <input
                 type="checkbox"
+                :disabled="!canWrite"
                 v-model="it.done"
                 @click.stop
                 @change="togglePrepDone(prepTab, it)"
@@ -1521,13 +1537,17 @@
         @touchend="onBackupSwipeEnd($event)"
       >
 
-        <div class="segmented segmented-4 backup-sticky">
+        <div class="segmented segmented-5 backup-sticky">
           <button class="seg-btn" :class="{ active: backupTab === 'snacks' }" @click="backupTab='snacks'" type="button">
             🍫 零食
           </button>
 
           <button class="seg-btn" :class="{ active: backupTab === 'beauty' }" @click="backupTab='beauty'" type="button">
             💄 美妝
+          </button>
+
+          <button class="seg-btn" :class="{ active: backupTab === 'shopping' }" @click="backupTab='shopping'" type="button">
+            🛍️ 購物
           </button>
 
           <button class="seg-btn" :class="{ active: backupTab === 'food' }" @click="backupTab='food'" type="button">
@@ -1538,6 +1558,9 @@
             📍 地點
           </button>
         </div>
+
+      <!-- ===== 購物（從準備頁移到備用頁；沿用 trips/{tripId}/prep_shopping） ===== -->
+
 
 
 
@@ -1593,7 +1616,8 @@
 
         
         <!-- ===== 零食 / 美妝（同功能） ===== -->
-        <div v-else-if="backupTab === 'snacks' || backupTab === 'beauty'" class="card">
+        <div v-else-if="backupTab === 'snacks' || backupTab === 'beauty' || backupTab === 'shopping'" class="card">
+
           <div class="row-right" style="margin-top:10px;">
             <!-- ✅ 切換按鈕：清單 / 圖片庫 -->
             <button
@@ -1621,7 +1645,7 @@
           <div v-else-if="backup[snackLikeKind].error" class="empty-state">讀取失敗：{{ backup[snackLikeKind].error }}</div>
 
           <div v-else-if="!backup[snackLikeKind].items.length" class="empty-state">
-            尚未建立{{ snackLikeKind === 'beauty' ? '美妝' : '零食' }}口袋名單。
+            尚未建立{{ snackLikeKind === 'beauty' ? '美妝' : (snackLikeKind === 'shopping' ? '購物' : '零食') }}口袋名單。
           </div>
 
           <!-- ✅ 清單模式 -->
@@ -1659,7 +1683,7 @@
           <!-- ✅ 圖片庫模式（只展示已上傳的照片） -->
           <div v-else class="snack-gallery">
             <div v-if="!snackLikePhotoItems.length" class="empty-state">
-              尚未上傳任何{{ snackLikeKind === 'beauty' ? '美妝' : '零食' }}照片。
+              尚未上傳任何{{ snackLikeKind === 'beauty' ? '美妝' : (snackLikeKind === 'shopping' ? '購物' : '零食') }}照片。
             </div>
 
             <button
@@ -1746,8 +1770,12 @@
                   ? '美食'
                   : (backupEditor.kind === 'snacks'
                       ? '零食'
-                      : (backupEditor.kind === 'beauty' ? '美妝' : '地點')
+                      : (backupEditor.kind === 'beauty'
+                          ? '美妝'
+                          : (backupEditor.kind === 'shopping' ? '購物' : '地點')
+                        )
                     )
+
               }}
 
 
@@ -1766,7 +1794,8 @@
 
               </template>
 
-              <template v-else-if="backupEditor.kind === 'snacks' || backupEditor.kind === 'beauty'">
+              <template v-else-if="backupEditor.kind === 'snacks' || backupEditor.kind === 'beauty' || backupEditor.kind === 'shopping'">
+
 
                 <div class="field field-span">
                   <!-- ✅ 原生 input 隱藏：移除「未選擇任何檔案」 -->
@@ -1845,7 +1874,7 @@
 
 
 
-              <label class="field field-span" v-if="backupEditor.kind !== 'snacks'">
+              <label class="field field-span" v-if="backupEditor.kind !== 'snacks' && backupEditor.kind !== 'beauty' && backupEditor.kind !== 'shopping'">
                 <div class="field-label">mapQuery（Google Maps 搜尋字）</div>
                 <input
                   class="field-input"
@@ -1980,7 +2009,7 @@
               </div>
 
               <div class="hint">
-                這裡顯示的是 trips/{{ DEFAULT_TRIP_ID }}/invites。對方登入後會自動加入 members。
+                這裡顯示的是 trips/{{ activeTripId }}/invites。對方登入後會自動加入 members。
               </div>
             </div>
 
@@ -2088,10 +2117,140 @@
         </div>
 
 
+
+
       </section>
 
 
     </main>
+
+
+
+        <!-- ✅ Trip switch / create / settings -->
+        <div v-if="tripModal.open" class="modal-overlay" @click.self="closeTripModal">
+          <div class="modal">
+            <div class="modal-title">🧳 旅程設定</div>
+            <div class="modal-subtitle">目前旅程：<b>{{ activeTripId }}</b></div>
+
+            <div class="form-grid" style="grid-template-columns:1fr; margin-top:10px;">
+
+              <!-- ✅ 切換 tripId：下拉式選單（含最近使用） -->
+              <label class="field">
+                <div class="field-label">切換到 tripId（下拉）</div>
+                <select class="field-input" v-model="tripModal.selectedTripId">
+                  <option value="">（選擇旅程）</option>
+                  <option v-for="tid in tripModal.knownTripIds" :key="tid" :value="tid">
+                    {{ tid }}
+                  </option>
+                </select>
+              </label>
+
+              <div class="row-right" style="margin-top:6px;">
+                <button
+                  class="btn btn-secondary btn-mini"
+                  :disabled="!tripModal.selectedTripId"
+                  @click="switchTrip(tripModal.selectedTripId)"
+                >
+                  切換
+                </button>
+              </div>
+
+
+              <!-- ✅ 旅途設定：起始日期 + 行程標題 -->
+              <div v-if="isOwner" class="card" style="margin-top:10px;">
+                <div class="card-title">旅途設定</div>
+                <div class="card-subtitle">
+                  起始日期會自動推算每一天日期；行程標題確認後不可更改。
+                </div>
+
+                <label class="field" style="margin-top:10px;">
+                  <div class="field-label">
+                    行程標題 <span style="color:#b02a37; font-weight:1000;">（必填）</span>
+                  </div>
+                  <input
+                    class="field-input"
+                    v-model.trim="tripModal.title"
+                    placeholder="例如：蜜月京都大阪 2026"
+                  />
+                  <div class="modal-hint" style="margin-top:6px;">
+                    💡 提示：旅程標題新增後不可修改
+                  </div>
+                </label>
+
+
+                <label class="field" style="margin-top:10px;">
+                  <div class="field-label">起始日期</div>
+                  <input class="field-input" v-model="tripModal.startDate" type="date" />
+                </label>
+
+                <div class="form-grid" style="grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+                  <label class="field">
+                    <div class="field-label">天數（1~31）</div>
+                    <input
+                      class="field-input"
+                      v-model.number="tripModal.days"
+                      type="number"
+                      min="1"
+                      max="31"
+                      inputmode="numeric"
+                    />
+                  </label>
+
+                  <div class="field">
+                    <div class="field-label">結束日期（自動）</div>
+                    <input class="field-input" :value="tripModal.endDate" type="text" readonly />
+                  </div>
+                </div>
+
+                <label class="field" style="margin-top:10px;">
+                  <div class="field-label">天氣地區（旅程預設）</div>
+                  <select class="field-input" v-model="tripModal.weatherCity">
+                    <option value="">（自動：依當天/地點判斷）</option>
+                    <option v-for="c in supportedWeatherCities" :key="c.key" :value="c.key">
+                      {{ c.label }}
+                    </option>
+                  </select>
+                  <div class="modal-hint" style="margin-top:6px;">
+                    ✅ 為避免「輸入不支援城市 → 又回大阪」，這裡只允許選支援的城市。
+                  </div>
+                </label>
+
+
+
+
+
+
+
+
+
+
+                <div class="row-right" style="margin-top:10px;">
+                  <button
+                    class="btn btn-primary btn-mini"
+                    :disabled="!user || !tripModal.startDate || !tripModal.title"
+                    @click="applyAndConfirmTripSettings"
+                    title="一次完成：套用行程日期 + 儲存旅程設定"
+                  >
+                    建立
+                  </button>
+                </div>
+
+
+                <div class="modal-hint" v-if="!user">
+                  需要先登入才能寫入旅程設定。
+                </div>
+              </div>
+
+
+
+              <div class="modal-actions">
+                <button class="btn btn-ghost" @click="closeTripModal">關閉</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
 
 <nav class="bottom-nav bottom-nav-6">
   <button
@@ -2168,16 +2327,21 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+
 
 import { db } from "./firebase";
 
 import {
   collection,
+  collectionGroup,
   doc,
   getDoc,
   getDocs,
   query,
+  where,
+  FieldPath,
   orderBy,
   updateDoc,
   addDoc,
@@ -2186,6 +2350,7 @@ import {
   onSnapshot,
   deleteDoc,
 } from "firebase/firestore";
+
 
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 
@@ -2199,8 +2364,45 @@ import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteOb
 
 
 
+
+
 /* ===================== 固定預設行程 ===================== */
+
+// ✅ 你要「改回 DEFAULT_TRIP_ID」：這裡就是唯一來源
 const DEFAULT_TRIP_ID = "HM-8F3K2A";
+
+// ✅ 允許切換旅程，所以要用 let（後面 switchTrip / createNewTrip 會重新指定）
+let activeTripId = localStorage.getItem("activeTripId") || DEFAULT_TRIP_ID;
+
+// ✅ 目前旅程標題（跟著 activeTripId 變動）
+const tripTitle = ref("");
+
+// ✅ Trip meta（旅途設定）：startDate / title lock
+const tripMeta = reactive({
+  startDate: "",
+  days: 0,
+  titleLocked: false,
+  weatherCity: "", // ✅ 天氣預設地區（Key：Osaka/Kyoto...）
+});
+
+const tripModal = reactive({
+  open: false,
+  // switch
+  selectedTripId: "",
+  knownTripIds: [],
+
+  // settings
+  startDate: "",
+  endDate: "",
+  title: "",
+  titleLocked: false,
+  days: 7,
+
+  // weather
+  weatherCity: "", // ✅ 旅程層級預設天氣地區（可輸入中英）
+});
+
+
 
 /* ===================== Auth ===================== */
 const auth = getAuth();
@@ -2279,7 +2481,7 @@ function startInvitesListener() {
   if (invitesUnsub) return;
 
   const qy = query(
-    collection(db, "trips", DEFAULT_TRIP_ID, "invites"),
+    collection(db, "trips", activeTripId, "invites"),
     orderBy("createdAt", "desc")
   );
 
@@ -2326,7 +2528,7 @@ function startMembersListener() {
   if (membersUnsub) return;
 
   const q = query(
-    collection(db, "trips", DEFAULT_TRIP_ID, "members"),
+    collection(db, "trips", activeTripId, "members"),
     orderBy("updatedAt", "desc")
   );
 
@@ -2483,7 +2685,7 @@ async function inviteMemberByEmail() {
 
   try {
     await setDoc(
-      doc(db, "trips", DEFAULT_TRIP_ID, "invites", emailKey),
+      doc(db, "trips", activeTripId, "invites", emailKey),
       payload,
       { merge: true }
     );
@@ -2507,12 +2709,12 @@ async function tryClaimInviteOnLogin() {
 
   try {
     // 已經是 member 就不用做
-    const myMemberRef = doc(db, "trips", DEFAULT_TRIP_ID, "members", u.uid);
+    const myMemberRef = doc(db, "trips", activeTripId, "members", u.uid);
     const myMemberSnap = await getDoc(myMemberRef);
     if (myMemberSnap.exists()) return;
 
     // 查 invite
-    const invRef = doc(db, "trips", DEFAULT_TRIP_ID, "invites", emailKey);
+    const invRef = doc(db, "trips", activeTripId, "invites", emailKey);
     const invSnap = await getDoc(invRef);
     if (!invSnap.exists()) return;
 
@@ -2557,7 +2759,7 @@ async function removeMember(m) {
   if (!confirm(`確定要刪除成員：${m.displayName || m.uid}？`)) return;
 
   try {
-    await deleteDoc(doc(db, "trips", DEFAULT_TRIP_ID, "members", m.uid));
+    await deleteDoc(doc(db, "trips", activeTripId, "members", m.uid));
     alert("刪除成功！");
   } catch (e) {
     console.error("removeMember 失敗：", e);
@@ -2612,7 +2814,7 @@ async function confirmMemberPermChange() {
   const nextCanWrite = !!memberPermModal.value.nextCanWrite;
 
   try {
-    await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, "members", m.uid), {
+    await updateDoc(doc(db, "trips", activeTripId, "members", m.uid), {
       canWrite: nextCanWrite,
       updatedAt: serverTimestamp(),
     });
@@ -2798,25 +3000,29 @@ function bookingStayPerPersonPerNight(b) {
 const backupTab = ref("snacks"); // food | snacks | beauty | places
 
 
-// ✅ 零食/美妝：當前是哪一個分頁（共用同一套 UI 與上傳邏輯）
-const snackLikeKind = computed(() => (backupTab.value === "beauty" ? "beauty" : "snacks"));
 
+// ✅ 零食/美妝/購物：共用同一套 UI 與上傳邏輯
+const snackLikeKind = computed(() => {
+  if (backupTab.value === "beauty") return "beauty";
+  if (backupTab.value === "shopping") return "shopping";
+  return "snacks";
+});
 
-// ✅ 零食：清單/圖片庫切換
+// ✅ 清單/圖片庫切換
 const snackGalleryMode = ref(false);
 
-// ✅ 零食：只收集「有上傳照片」的項目（用於圖片庫展示）
+// ✅ 只收集「有上傳照片」的項目（用於圖片庫展示）
 const snackLikePhotoItems = computed(() => {
   const k = snackLikeKind.value;
   const items = backup.value?.[k]?.items || [];
   return items.filter((it) => Boolean(it.photoUrl));
 });
 
-
-// ✅ 離開零食分頁時，自動回到清單模式（避免切回來還停在圖片庫）
+// ✅ 離開這三個分頁時，自動回到清單模式
 watch(backupTab, (v) => {
-  if (v !== "snacks" && v !== "beauty") snackGalleryMode.value = false;
+  if (v !== "snacks" && v !== "beauty" && v !== "shopping") snackGalleryMode.value = false;
 });
+
 
 
 /* ===================== Backup（備用：美食/地點） ===================== */
@@ -2824,8 +3030,10 @@ const backup = ref({
   food: { items: [], loading: false, error: "" },
   snacks: { items: [], loading: false, error: "" },
   beauty: { items: [], loading: false, error: "" },
+  shopping: { items: [], loading: false, error: "" }, // ✅ 新增
   places: { items: [], loading: false, error: "" },
 });
+
 
 
 
@@ -2833,14 +3041,16 @@ let unsubBackupFood = null;
 let unsubBackupSnacks = null;
 let unsubBackupBeauty = null;
 let unsubBackupPlaces = null;
-
+let unsubBackupShopping = null;
 
 function backupCollectionKey(kind) {
   if (kind === "food") return "backup_food";
   if (kind === "snacks") return "backup_snacks";
   if (kind === "beauty") return "backup_beauty";
+  if (kind === "shopping") return "backup_shopping"; // ✅ 沿用你原本購物路徑
   return "backup_places";
 }
+
 
 
 
@@ -2851,7 +3061,7 @@ function subscribeBackup(kind) {
   backup.value[kind].error = "";
 
   // 先用 createdAt 拉資料（穩定、避免要求你建 composite index）
-  const qy = query(collection(db, "trips", DEFAULT_TRIP_ID, key), orderBy("createdAt", "desc"));
+  const qy = query(collection(db, "trips", activeTripId, key), orderBy("createdAt", "desc"));
 
   const unsub = onSnapshot(
     qy,
@@ -2860,7 +3070,7 @@ function subscribeBackup(kind) {
         const data = d.data() || {};
         return {
           id: d.id,
-          title: data.title || "",
+          title: data.title || data.text || "",
           note: data.note || "",
           mapQuery: data.mapQuery || "",
           order: typeof data.order === "number" ? data.order : null,
@@ -2901,6 +3111,7 @@ function subscribeBackup(kind) {
   if (kind === "food") unsubBackupFood = unsub;
   if (kind === "snacks") unsubBackupSnacks = unsub;
   if (kind === "beauty") unsubBackupBeauty = unsub;
+  if (kind === "shopping") unsubBackupShopping = unsub;
   if (kind === "places") unsubBackupPlaces = unsub;
 
 }
@@ -2915,6 +3126,7 @@ function subscribeBackupAll() {
   subscribeBackup("food");
   subscribeBackup("snacks");
   subscribeBackup("beauty");
+  subscribeBackup("shopping"); // ✅ 新增
   subscribeBackup("places");
 }
 
@@ -2924,11 +3136,13 @@ function unsubscribeBackupAll() {
   if (unsubBackupFood) unsubBackupFood();
   if (unsubBackupSnacks) unsubBackupSnacks();
   if (unsubBackupBeauty) unsubBackupBeauty();
+  if (unsubBackupShopping) unsubBackupShopping();
   if (unsubBackupPlaces) unsubBackupPlaces();
 
   unsubBackupFood = null;
   unsubBackupSnacks = null;
   unsubBackupBeauty = null;
+  unsubBackupShopping = null;
   unsubBackupPlaces = null;
 }
 
@@ -3052,39 +3266,38 @@ async function saveBackupEdit(options = { keepOpen: false }) {
     updatedAt: serverTimestamp(),
   };
 
-  // ✅ mapQuery：零食不需要；美食/地點才存
-  if (kind !== "snacks") {
+  // ✅ mapQuery：零食 / 美妝 / 購物 不需要；美食/地點才存
+  if (kind !== "snacks" && kind !== "beauty" && kind !== "shopping") {
     payload.mapQuery = String(backupEditor.value.form.mapQuery || "").trim();
   }
 
+  if (kind === "food") {
+    payload.mustEat = String(backupEditor.value.form.mustEat || "").trim();
+    payload.queueMins =
+      typeof backupEditor.value.form.queueMins === "number"
+        ? backupEditor.value.form.queueMins
+        : null;
 
-
-if (kind === "food" && kind !== "beauty") {
-  payload.mustEat = String(backupEditor.value.form.mustEat || "").trim();
-  payload.queueMins =
-    typeof backupEditor.value.form.queueMins === "number"
-      ? backupEditor.value.form.queueMins
-      : null;
-
-
-  } else if (kind === "snacks"|| kind === "beauty") {
-
+  } else if (kind === "snacks" || kind === "beauty" || kind === "shopping") {
+    // ✅ 零食/美妝/購物：同款「照片欄位」
     payload.photoUrl = String(backupEditor.value.form.photoUrl || "").trim();
     payload.photoPath = String(backupEditor.value.form.photoPath || "").trim();
     payload.photoName = String(backupEditor.value.form.photoName || "").trim();
     payload.photoType = String(backupEditor.value.form.photoType || "").trim();
   } else {
+    // ✅ 地點：營業時間
     payload.hours = String(backupEditor.value.form.hours || "").trim();
   }
 
 
+
   try {
     if (backupEditor.value.isEdit && backupEditor.value.id) {
-      await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, backupEditor.value.id), payload);
+      await updateDoc(doc(db, "trips", activeTripId, key, backupEditor.value.id), payload);
       if (!options.keepOpen) closeBackupEditor();
       return backupEditor.value.id;
     } else {
-      const refDoc = await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, key), {
+      const refDoc = await addDoc(collection(db, "trips", activeTripId, key), {
         ...payload,
         createdAt: serverTimestamp(),
       });
@@ -3115,7 +3328,7 @@ async function deleteBackupItem() {
   if (!ok) return;
 
   try {
-    await deleteDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, backupEditor.value.id));
+    await deleteDoc(doc(db, "trips", activeTripId, key, backupEditor.value.id));
     closeBackupEditor();
   } catch (e) {
     console.error("刪除 backup 失敗：", e);
@@ -3176,7 +3389,7 @@ async function deleteSnackPhoto() {
   if (!canWrite.value) return alert("只讀模式無法刪除：請先登入並被加入 members。");
 
   const kind = backupEditor.value.kind;
-  if (kind !== "snacks" && kind !== "beauty") return;
+  if (kind !== "snacks" && kind !== "beauty" && kind !== "shopping") return;
 
   const key = backupCollectionKey(kind);
 
@@ -3202,7 +3415,7 @@ async function deleteSnackPhoto() {
 
     // ✅ 2) 清 Firestore（有 id 才能寫回）
     if (snackId) {
-      await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, snackId), {
+      await updateDoc(doc(db, "trips", activeTripId, key, snackId), {
         photoUrl: "",
         photoPath: "",
         photoName: "",
@@ -3232,7 +3445,7 @@ async function uploadSnackPhoto() {
   if (!canWrite.value) return alert("只讀模式無法上傳：請先登入並被加入 members。");
 
   const kind = backupEditor.value.kind;
-  if (kind !== "snacks" && kind !== "beauty") return;
+  if (kind !== "snacks" && kind !== "beauty" && kind !== "shopping") return;
 
   const key = backupCollectionKey(kind);
 
@@ -3255,7 +3468,7 @@ async function uploadSnackPhoto() {
 
     const file = snackPhotoFile.value;
     const safeName = `${Date.now()}-${String(file.name || "snack").replace(/[^\w.\-]+/g, "_")}`;
-    const path = `trips/${DEFAULT_TRIP_ID}/${key}/${snackId}/${safeName}`;
+    const path = `trips/${activeTripId}/${key}/${snackId}/${safeName}`;
 
 
     const storageRef = sRef(storage, path);
@@ -3278,7 +3491,7 @@ async function uploadSnackPhoto() {
     const url = await getDownloadURL(task.snapshot.ref);
 
     // ✅ 寫回 Firestore
-    await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, snackId), {
+    await updateDoc(doc(db, "trips", activeTripId, key, snackId), {
       photoUrl: url,
       photoPath: path,
       photoName: safeName,
@@ -3382,6 +3595,15 @@ const pageTitle = computed(() => {
 
 /* ===================== Lifecycle ===================== */
 
+watch(
+  () => activeTripId,
+  async (newTripId) => {
+    await loadTripMetaTitle(newTripId);
+  },
+  { immediate: true }
+);
+
+
 onMounted(async () => {
 
   // ===== Mobile: 禁止縮放（pinch / ctrl+wheel）保險 =====
@@ -3413,12 +3635,14 @@ onMounted(async () => {
   }
 
 
-  // ✅ 未登入也要能看：一進來先載入可公開閱讀的資料
-  await loadPlan();
-  await reloadExpenses();
-  await loadPrepAll();
-  await refreshFxTool();
-  subscribeBookings();
+// ✅ 未登入也要能看：一進來先載入可公開閱讀的資料（任何一步失敗都不要讓整個 App 掛掉）
+try { await loadPlan(); } catch (e) { console.warn("[init] loadPlan failed:", e); }
+try { await reloadExpenses(); } catch (e) { console.warn("[init] reloadExpenses failed:", e); }
+try { await loadPrepAll(); } catch (e) { console.warn("[init] loadPrepAll failed:", e); }
+try { await refreshFxTool(); } catch (e) { console.warn("[init] refreshFxTool failed:", e); }
+
+try { subscribeBookings(); } catch (e) { console.warn("[init] subscribeBookings failed:", e); }
+
 
 
   onAuthStateChanged(auth, async (u) => {
@@ -3433,19 +3657,76 @@ onMounted(async () => {
     isMember.value = false;
     members.value = [];
 
-    if (!user.value) {
-      stopHeartbeat();
-      unsubscribePresence();
-      stopInvitesListener();
-      membershipChecked.value = true;
-      isMember.value = false;
+  if (!user.value) {
+    // ✅ 登出：關掉 bookings listener，避免卡在 permission-denied 後永遠空白
+    unsubscribeBookings();
+    bookings.value = [];
+    bookingLoading.value = false;
 
-      if (accountingTab.value === "entry") accountingTab.value = "detail";
+    stopHeartbeat();
+    unsubscribePresence();
+    stopInvitesListener();
+    membershipChecked.value = true;
+    isMember.value = false;
 
-      console.log("[AUTH] canWrite =", canWrite.value, "(signed out)");
-      unsubscribeBackupAll();
-      return;
-    }
+    if (accountingTab.value === "entry") accountingTab.value = "detail";
+
+    console.log("[AUTH] canWrite =", canWrite.value, "(signed out)");
+    unsubscribeBackupAll();
+    return;
+  }
+
+// ✅ 登入：先重建 bookings listener（避免登出時錯誤後 listener 死掉）
+subscribeBookings();
+
+// 登入：presence + member 檢查
+subscribePresence();
+await upsertPresence();
+startHeartbeat();
+
+// ✅ 先嘗試吃邀請（用 Email 自動加入）
+await tryClaimInviteOnLogin();
+
+await checkMembership();
+// ✅ 重要：登入且通過 members 檢查後，重新讀取 plan（避免初次未登入讀取失敗後一直為空）
+if (isMember.value) {
+  await loadPlan();
+}
+
+// ✅ 只有成員才訂閱備用清單（避免一開始 permission-denied 後永遠看不到）
+if (isMember.value) {
+  subscribeBackupAll();
+} else {
+  unsubscribeBackupAll();
+}
+
+console.log(
+  "[AUTH] membershipChecked =",
+  membershipChecked.value,
+  "isMember =",
+  isMember.value,
+  "canWrite =",
+  canWrite.value
+);
+
+// ✅ 成員就訂閱 members 清單（owner / 只讀成員都要能看到）
+if (isMember.value) {
+  startMembersListener();
+
+  // ✅ 只有 owner 才需要看邀請清單
+  if (isOwner.value) startInvitesListener();
+  else stopInvitesListener();
+
+  const me = userLabel.value;
+  uiMember.value = memberChips.value.includes(me) ? me : memberChips.value[0] || me;
+} else {
+  stopMembersListener();
+  stopInvitesListener();
+  members.value = [];
+
+  if (accountingTab.value === "entry") accountingTab.value = "detail";
+}
+
 
     // 登入：presence + member 檢查
     subscribePresence();
@@ -3523,6 +3804,426 @@ async function logout() {
   await signOut(auth);
 }
 
+async function openTripModal() {
+  // ✅ trip switch UI
+  tripModal.selectedTripId = activeTripId;
+
+  // ✅ 下拉 trip 清單：localStorage 歷史 + Firestore 你加入過的 trips
+  const history = getTripHistory();
+  const mine = await fetchMyTripIds();
+  const merged = [...new Set([DEFAULT_TRIP_ID, activeTripId, ...history, ...mine].filter(Boolean))];
+  tripModal.knownTripIds = merged.slice(0, 30);
+
+  // ✅ 新旅程表單：不要讀現有 activeTripId 的 meta
+  // （這裡可視需求改成你想要的預設值）
+  tripModal.titleLocked = false;     // 新旅程允許編輯標題
+  tripModal.title = "";              // 新旅程標題
+  tripModal.startDate = "";          // 新旅程起始日期
+  tripModal.days = 7;                // 預設天數
+  tripModal.weatherCity = "";        // 新旅程天氣城市（選填）
+
+  tripModal.open = true;
+}
+
+
+
+
+
+
+function closeTripModal() {
+  tripModal.open = false;
+}
+
+
+
+
+async function loadTripMetaTitle(tripId) {
+  // ✅ 兼容舊呼叫：改讀完整 meta（title/startDate/days/titleLocked）
+  await loadTripMeta(tripId);
+}
+
+// ✅ 讀取旅程 meta
+async function loadTripMeta(tripId) {
+  try {
+    const snap = await getDoc(doc(db, "trips", tripId, "meta", "info"));
+    const data = snap.exists() ? (snap.data() || {}) : {};
+
+    tripTitle.value = String(data.title || "").trim();
+    tripMeta.startDate = String(data.startDate || "").trim();
+    tripMeta.days = Number(data.days || 0) || 0;
+    tripMeta.titleLocked = !!data.titleLocked;
+    tripMeta.weatherCity = String(data.weatherCity || "").trim();
+  } catch (e) {
+    console.error("[loadTripMeta] failed:", e);
+    tripTitle.value = "";
+    tripMeta.startDate = "";
+    tripMeta.days = 0;
+    tripMeta.titleLocked = false;
+    tripMeta.weatherCity = "";
+  }
+}
+
+function isoAddDays(ymd, add) {
+  if (!ymd) return "";
+  const d = new Date(`${ymd}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setDate(d.getDate() + Number(add || 0));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+function computeEndDate(startDate, days) {
+  const n = Math.max(1, Math.min(31, Number(days || 1)));
+  return startDate ? isoAddDays(startDate, n - 1) : "";
+}
+
+// ===================== Trip history（下拉選單資料來源） =====================
+function getTripHistory() {
+  try {
+    const raw = localStorage.getItem("tripIdHistory");
+    const arr = raw ? JSON.parse(raw) : [];
+    const list = Array.isArray(arr) ? arr.map((s) => String(s || "").trim()).filter(Boolean) : [];
+
+    // 保底：永遠包含預設與目前旅程
+    const base = [DEFAULT_TRIP_ID, activeTripId].filter(Boolean);
+    const merged = [...base, ...list];
+
+    // unique + keep order
+    const seen = new Set();
+    const out = [];
+    for (const id of merged) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+    return out.slice(0, 20); // 最多保留 20 個
+  } catch {
+    return [DEFAULT_TRIP_ID, activeTripId].filter(Boolean);
+  }
+}
+
+async function fetchMyTripIds() {
+  try {
+    const u = auth.currentUser;
+    if (!u) return [];
+
+    // 透過 collectionGroup 掃描：trips/{tripId}/members/{uid}
+    const qy = query(
+      collectionGroup(db, "members"),
+      where(FieldPath.documentId(), "==", u.uid)
+    );
+
+    const snap = await getDocs(qy);
+    const ids = [];
+
+    snap.forEach((d) => {
+      // d.ref: .../trips/{tripId}/members/{uid}
+      const tripId = d.ref?.parent?.parent?.id;
+      if (tripId) ids.push(String(tripId));
+    });
+
+    // unique + keep order
+    const seen = new Set();
+    return ids.filter((x) => {
+      if (!x || seen.has(x)) return false;
+      seen.add(x);
+      return true;
+    });
+  } catch (e) {
+    console.warn("[fetchMyTripIds] failed:", e);
+    return [];
+  }
+}
+
+
+function pushTripHistory(tripId) {
+  const id = String(tripId || "").trim();
+  if (!id) return;
+  const list = getTripHistory();
+  const next = [id, ...list.filter((x) => x !== id)];
+  localStorage.setItem("tripIdHistory", JSON.stringify(next.slice(0, 20)));
+}
+
+
+
+watch(
+  () => [tripModal.startDate, tripModal.days],
+  () => {
+    tripModal.endDate = computeEndDate(tripModal.startDate, tripModal.days);
+  }
+);
+
+function syncTripModalFromMeta(tripId) {
+  // title：若已鎖定，沿用 meta 的 title；否則預填（方便第一次設定）
+  tripModal.titleLocked = !!tripMeta.titleLocked;
+  tripModal.title = tripTitle.value || "";
+  tripModal.startDate = tripMeta.startDate || "";
+
+  // days：優先用 meta.days；沒有就用 plan 長度；再沒有就 7
+  const planDays = Array.isArray(plan.value) ? plan.value.length : 0;
+  const n = tripMeta.days || planDays || 7;
+  tripModal.days = Math.max(1, Math.min(31, Number(n || 7)));
+  tripModal.endDate = computeEndDate(tripModal.startDate, tripModal.days);
+  tripModal.weatherCity = tripMeta.weatherCity || "";
+
+}
+
+// ✅ 儲存「旅途設定」：title（一次性鎖定）+ startDate + days
+async function saveTripSettings(opts = {}) {
+
+  if (!user.value) return;
+
+  const title = String(tripModal.title || "").trim();
+  const startDate = String(tripModal.startDate || "").trim();
+  const days = Math.max(1, Math.min(31, Number(tripModal.days || 7)));
+
+  if (!title || !startDate) {
+    alert("⚠️ 請先填：起始日期 + 行程標題（必填）");
+    return;
+  }
+
+  // 讀一次目前 meta，決定 title 是否可寫
+  const refInfo = doc(db, "trips", activeTripId, "meta", "info");
+  const snap = await getDoc(refInfo);
+  const cur = snap.exists() ? (snap.data() || {}) : {};
+  const alreadyLocked = !!cur.titleLocked;
+  const rawWeather = String(tripModal.weatherCity || "").trim();
+  const guessedWeather = rawWeather ? (guessCityFromText(rawWeather) || rawWeather) : "";
+  const weatherCity = String(weatherCityArg || "").trim();
+
+  const patch = {
+    startDate,
+    days,
+    weatherCity, // ✅ 新增
+    updatedAt: serverTimestamp(),
+  };
+
+
+  // 只有未鎖定時才允許寫 title，並在這次鎖定
+  if (!alreadyLocked) {
+    patch.title = title;
+    patch.titleLocked = true;
+  }
+
+  await setDoc(refInfo, patch, { merge: true });
+  await loadTripMeta(activeTripId);
+  syncTripModalFromMeta(activeTripId);
+  if (!opts.silent) alert("✅ 已確認旅途設定");
+}
+
+// ✅ 一鍵整合：套用行程日期 + 確認旅途設定（只跳一次訊息）
+async function applyAndConfirmTripSettings() {
+  // ✅ 這裡開始：全部是「建立新旅程」用
+  const cleanTitle = String(tripModal.title || "").trim();
+  const cleanStart = String(tripModal.startDate || "").trim();
+  const n = Number(tripModal.days || 0);
+
+  if (!cleanTitle) {
+    alert("請輸入行程標題");
+    return;
+  }
+  if (!cleanStart) {
+    alert("請選擇起始日期");
+    return;
+  }
+  if (!Number.isFinite(n) || n < 1 || n > 60) {
+    alert("天數請輸入 1~60");
+    return;
+  }
+
+  // ✅ 呼叫你既有 createNewTrip() 建立新的 tripId
+  // 建議：讓 createNewTrip 接收 weatherCity（下面第 3 點會補）
+  await createNewTrip(n, cleanStart, cleanTitle, String(tripModal.weatherCity || "").trim());
+
+  tripModal.open = false;
+}
+
+
+
+// ✅ 把起始日期套用到目前旅程 plan（不改 events，只改每一天 date）
+async function applyTripStartDateToPlan(opts = {}) {
+  if (!user.value) return;
+  const startDate = String(tripModal.startDate || "").trim();
+  if (!startDate) return;
+
+  // 以目前 plan 的天數為準（避免一鍵把資料洗掉）
+  const days =
+    Array.isArray(plan.value) && plan.value.length
+      ? plan.value.length
+      : Math.max(1, Math.min(31, Number(tripModal.days || 7)));
+
+  for (let d = 1; d <= days; d++) {
+    const dayId = `D${d}`;
+    await setDoc(
+      doc(db, "trips", activeTripId, "plan", dayId),
+      { date: isoAddDays(startDate, d - 1), updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+  }
+
+  await setDoc(
+    doc(db, "trips", activeTripId, "meta", "info"),
+    { startDate, days, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+
+  await loadPlan();
+  tripModal.endDate = computeEndDate(startDate, days);
+  if (!opts.silent) alert("✅ 已套用起始日期到行程日期");
+}
+
+
+async function saveTripTitle(tripId, title) {
+  const clean = String(title || "").trim();
+  await setDoc(
+    doc(db, "trips", tripId, "meta", "info"),
+    { title: clean, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+  tripTitle.value = clean;
+}
+
+async function switchTrip(id) {
+  const next = String(id || "").trim();
+  if (!next) return;
+
+  if (next === activeTripId) {
+    tripModal.open = false;
+    return;
+  }
+
+  // ✅ 先清空舊標題，避免 UI 短暫顯示上一個旅程名稱
+  tripTitle.value = "";
+
+  activeTripId = next;
+  localStorage.setItem("activeTripId", next);
+  tripModal.open = false;
+
+  pushTripHistory(next);
+
+  // ✅ 關鍵：切換後立刻讀取新旅程的 meta，讓 tripTitle 更新
+  await loadTripMeta(next);
+
+  // ✅ 切換後立刻重載（避免留在空畫面）
+  await rehydrateTripData();
+}
+
+
+
+function genTripId() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let s = "HM-";
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+async function createNewTrip(days = 7, startDate = "", title = "", weatherCityArg = "") {
+
+
+  if (!user.value) return;
+
+  const n = Math.max(1, Math.min(31, Number(days || 7)));
+  const cleanStart = String(startDate || "").trim();
+  const cleanTitle = String(title || "").trim();
+  if (!cleanStart || !cleanTitle) {
+    alert("⚠️ 建立新旅程需要：起始日期 + 行程標題（必填）");
+    return;
+  }
+
+  const newId = genTripId();
+
+  // 先切換到新旅程（後面寫入都用 activeTripId）
+  activeTripId = newId;
+  localStorage.setItem("activeTripId", newId);
+  pushTripHistory(newId);
+
+  // ✅ 1) 建立 members/{uid}（owner）
+  const meRef = doc(db, "trips", activeTripId, "members", user.value.uid);
+  await setDoc(
+    meRef,
+    {
+      uid: user.value.uid,
+      displayName: userLabel.value || "Owner",
+      role: "owner",
+      canWrite: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+  
+  // ✅ 2) 建立 plan D1~Dn（依起始日期推算 date）
+  for (let d = 1; d <= n; d++) {
+    const dayId = `D${d}`;
+    await setDoc(
+      doc(db, "trips", activeTripId, "plan", dayId),
+      {
+        day: d,
+        date: isoAddDays(cleanStart, d - 1),
+        city: "",
+        events: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  const rawWeather = String(tripModal.weatherCity || "").trim();
+  const guessedWeather = rawWeather ? (guessCityFromText(rawWeather) || rawWeather) : "";
+  const weatherCity = String(weatherCityArg || "").trim();
+
+  // ✅ 3) 建立 meta（title 一次性鎖定）
+  await setDoc(
+    doc(db, "trips", activeTripId, "meta", "info"),
+    {
+      title: cleanTitle,
+      titleLocked: true,
+      startDate: cleanStart,
+      days: n,
+      weatherCity, 
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+  tripTitle.value = cleanTitle;
+  tripModal.open = false;
+  await rehydrateTripData();
+}
+
+
+async function rehydrateTripData() {
+  // 先清掉所有 listener / state（避免舊旅程殘留）
+  unsubscribeBookings();
+  unsubscribeBackupAll();
+  stopMembersListener();
+  stopInvitesListener();
+
+  bookings.value = [];
+  expenses.value = [];
+  plan.value = [];
+  activeDayId.value = null;
+
+  // 未登入就只停在這（避免 permission-denied）
+  if (!user.value) return;
+
+  // ✅ 重新做 membership 檢查 → 再依權限訂閱
+  await checkMembership();
+
+  if (isMember.value) {
+    await loadPlan();
+    subscribeBookings();
+    subscribeBackupAll();
+
+    startMembersListener();
+    if (isOwner.value) startInvitesListener();
+  }
+  
+}
+
 /* ===================== members 檢查 ===================== */
 async function checkMembership() {
   membershipChecked.value = false;
@@ -3535,7 +4236,7 @@ async function checkMembership() {
       return;
     }
 
-    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "members", user.value.uid);
+    const refDoc = doc(db, "trips", activeTripId, "members", user.value.uid);
     const snap = await getDoc(refDoc);
 
     if (!snap.exists()) {
@@ -3599,13 +4300,13 @@ function exportItineraryJson() {
 
   const payload = {
     schema: "honeymoon-itinerary-v1",
-    tripId: DEFAULT_TRIP_ID,
+    tripId: activeTripId,
     exportedAt: new Date().toISOString(),
     plan: cleanedPlan,
   };
 
   const ymd = new Date().toISOString().slice(0, 10);
-  const filename = `itinerary_${DEFAULT_TRIP_ID}_${ymd}.json`;
+  const filename = `itinerary_${activeTripId}_${ymd}.json`;
 
   downloadJsonFile(filename, payload);
   alert("✅ 已匯出整份行程（JSON）");
@@ -3861,16 +4562,17 @@ function onAccountingSwipeEnd(ev) {
   handleSubSwipeEnd(ev, ACCOUNTING_TABS, accountingTab);
 }
 
-const PREP_TABS = ["todo", "luggage", "shopping"];
+const PREP_TABS = ["todo", "luggage"];
 function onPrepSwipeEnd(ev) {
   handleSubSwipeEnd(ev, PREP_TABS, prepTab);
 }
 
-const BACKUP_TABS = ["snacks", "beauty", "food", "places"];
+const BACKUP_TABS = ["snacks", "beauty", "shopping", "food", "places"];
 function onBackupSwipeEnd(ev) {
   if (backupEditor.value?.open) return;
   handleSubSwipeEnd(ev, BACKUP_TABS, backupTab);
 }
+
 
 
 function onDaySwipeEnd() {
@@ -3982,7 +4684,7 @@ async function onEventDrop(dayId, idx, ev) {
 
   // ✅ 寫回 Firestore（注意去掉 showNote）
   try {
-    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const dayRef = doc(db, "trips", activeTripId, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
     await updateDoc(dayRef, { events: eventsToSave });
   } catch (e) {
@@ -4003,7 +4705,7 @@ function onEventDragEnd() {
 async function loadPlan() {
   planLoading.value = true;
   try {
-    const q = query(collection(db, "trips", DEFAULT_TRIP_ID, "plan"), orderBy("day", "asc"));
+    const q = query(collection(db, "trips", activeTripId, "plan"), orderBy("day", "asc"));
     const snap = await getDocs(q);
 
     plan.value = snap.docs.map((d) => {
@@ -4055,7 +4757,7 @@ async function initPlanDays() {
       const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
       const dayId = `D${i + 1}`;
 
-      const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+      const dayRef = doc(db, "trips", activeTripId, "plan", dayId);
       await setDoc(
         dayRef,
         {
@@ -4098,7 +4800,7 @@ async function collapseAndSaveNote(dayId, idx) {
   }
 
   try {
-    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const dayRef = doc(db, "trips", activeTripId, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
 
     await updateDoc(dayRef, { events: eventsToSave });
@@ -4127,7 +4829,7 @@ async function clearEventNote(dayId, idx) {
   dayObj.events[idx] = { ...ev, note: "", showNote: false };
 
   try {
-    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const dayRef = doc(db, "trips", activeTripId, "plan", dayId);
 
     // 寫回時要去掉 showNote（你原本就是這樣做）
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
@@ -4152,7 +4854,7 @@ async function clearEventNote(dayId, idx) {
   dayObj.events = (dayObj.events || []).map((e) => ({ ...e, note: "", showNote: false }));
 
   try {
-    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const dayRef = doc(db, "trips", activeTripId, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
     await updateDoc(dayRef, { events: eventsToSave });
   } catch (e) {
@@ -4356,7 +5058,7 @@ async function saveEventEdit() {
     // ✅ 每次儲存後依時間重排
     sortDayEvents(dayObj);
 
-    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const dayRef = doc(db, "trips", activeTripId, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
 
     await updateDoc(dayRef, { events: eventsToSave });
@@ -4392,7 +5094,7 @@ async function deleteEvent() {
     // ✅ 先更新 UI（手感快），失敗就回滾
     dayObj.events.splice(idx, 1);
 
-    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const dayRef = doc(db, "trips", activeTripId, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
 
     await updateDoc(dayRef, { events: eventsToSave });
@@ -4421,7 +5123,7 @@ const honeymoonCountdownText = computed(() => {
   // ✅ 天數 <= 0（含當天 / 已出發）就隱藏
   if (days <= 0) return "";
 
-  return `距離蜜月旅行  ${days}天`;
+  return `距離旅行  ${days}天`;
 });
 
 
@@ -4448,17 +5150,76 @@ const CITY_COORDS = {
   Kyoto: { name: "Kyoto", lat: 35.0116, lon: 135.7681, tz: "Asia/Tokyo" },
   Kobe: { name: "Kobe", lat: 34.6901, lon: 135.1955, tz: "Asia/Tokyo" },
   Nara: { name: "Nara", lat: 34.6851, lon: 135.8049, tz: "Asia/Tokyo" },
+
+  // ✅ Taiwan
+  Penghu: { name: "Penghu", lat: 23.5711, lon: 119.5794, tz: "Asia/Taipei" },
+  Taipei: { name: "Taipei", lat: 25.0375, lon: 121.5637, tz: "Asia/Taipei" },
+  Taichung: { name: "Taichung", lat: 24.1477, lon: 120.6736, tz: "Asia/Taipei" },
+  Kaohsiung: { name: "Kaohsiung", lat: 22.6273, lon: 120.3014, tz: "Asia/Taipei" },
 };
 
+const supportedWeatherCities = computed(() => {
+  const ORDER = [
+    "Penghu",
+    "Taipei",
+    "Taichung",
+    "Kaohsiung",
+    "Osaka",
+    "Kyoto",
+    "Kobe",
+    "Nara",
+    "Busan",
+  ];
+
+  const keys = ORDER.filter((k) => CITY_COORDS[k]).concat(
+    Object.keys(CITY_COORDS).filter((k) => !ORDER.includes(k))
+  );
+
+  return keys.map((k) => ({ key: k, label: cityLabel(k) }));
+});
+
+
 function getDayCity(day) {
-  if (day.city) return day.city;
+  return getWeatherCityInfo(day).key;
+}
+
+function getWeatherCityInfo(day) {
+  // 1) 當天明確指定
+  if (day?.city && CITY_COORDS[day.city]) {
+    return { key: day.city, source: "day" };
+  }
+
+  // 2) 從當天第一個行程地點推測
   const firstLoc = day?.events?.[0]?.loc ? String(day.events[0].loc) : "";
   const guess = guessCityFromText(firstLoc);
-  return guess || "Osaka";
+  if (guess && CITY_COORDS[guess]) {
+    return { key: guess, source: "guess" };
+  }
+
+  // 3) 旅程層級預設（Trip settings）
+  if (tripMeta.weatherCity && CITY_COORDS[tripMeta.weatherCity]) {
+    return { key: tripMeta.weatherCity, source: "trip" };
+  }
+
+  // 4) 系統預設
+  return { key: "Osaka", source: "default" };
 }
+
+function weatherCitySourceLabel(source) {
+  if (source === "day") return "來源：當天指定";
+  if (source === "guess") return "來源：行程地點推測";
+  if (source === "trip") return "來源：旅程預設";
+  return "來源：系統預設";
+}
+
+
 
 function cityLabel(cityKey) {
   const k = String(cityKey || "").trim();
+  if (k === "Penghu") return "澎湖";
+  if (k === "Taipei") return "台北";
+  if (k === "Taichung") return "台中";
+  if (k === "Kaohsiung") return "高雄";
   if (k === "Osaka") return "大阪";
   if (k === "Kyoto") return "京都";
   return k; // 其他城市維持原樣
@@ -4467,6 +5228,11 @@ function cityLabel(cityKey) {
 
 function guessCityFromText(text) {
   const t = String(text || "").toLowerCase();
+  // Taiwan
+  if (t.includes("penghu") || t.includes("澎湖")) return "Penghu";
+  if (t.includes("taipei") || t.includes("台北") || t.includes("臺北")) return "Taipei";
+  if (t.includes("taichung") || t.includes("台中") || t.includes("臺中")) return "Taichung";
+  if (t.includes("kaohsiung") || t.includes("高雄")) return "Kaohsiung";
   if (t.includes("busan") || t.includes("釜山")) return "Busan";
   if (t.includes("osaka") || t.includes("大阪")) return "Osaka";
   if (t.includes("kyoto") || t.includes("京都")) return "Kyoto";
@@ -4484,7 +5250,7 @@ async function backfillCityIfMissing() {
     const guessed = getDayCity(day) || "Osaka";
     day.city = guessed;
 
-    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", day.id);
+    const dayRef = doc(db, "trips", activeTripId, "plan", day.id);
     tasks.push(updateDoc(dayRef, { city: guessed }));
   }
 
@@ -4500,6 +5266,9 @@ async function backfillCityIfMissing() {
 const weatherState = ref({
   loading: false,
   error: "",
+  cityKey: "",
+  citySource: "default",
+
   tNow: "-",
   tMin: "-",
   tMax: "-",
@@ -4512,12 +5281,30 @@ const weatherState = ref({
 });
 
 
+function ensurePrepShoppingSubscribed() {
+  // ✅ 避免重複訂閱造成多個 onSnapshot（會抖/會漏記憶體）
+  if (unsubPrepShopping) return;
+  subscribePrepList("shopping");
+}
+
 watch(currentPage, async (p) => {
   if (p === "itinerary") await resortItineraryByTime(); // ✅ 切回行程頁就依時間重排
   if (p === "accounting") await reloadExpenses();
   if (p === "prep") await loadPrepAll();
   if (p === "tools") await refreshFxTool();
+
+  // ✅ 你把「購物」搬到備用頁後：進備用頁也要確保訂閱購物資料
+  if (p === "backup") {
+    if (backupTab.value === "shopping") ensurePrepShoppingSubscribed();
+  }
 });
+
+// ✅ 在備用頁內切到「購物」時也要訂閱
+watch(backupTab, (t) => {
+  if (currentPage.value !== "backup") return;
+  if (t === "shopping") ensurePrepShoppingSubscribed();
+});
+
 
 function timeToMinutes(t) {
   const s = String(t || "").trim();
@@ -4563,7 +5350,7 @@ async function resortItineraryByTime() {
   if (beforeSig === afterSig) return;
 
   try {
-    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayObj.id);
+    const dayRef = doc(db, "trips", activeTripId, "plan", dayObj.id);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
     await updateDoc(dayRef, { events: eventsToSave });
   } catch (e) {
@@ -4576,8 +5363,12 @@ async function refreshWeatherForActiveDay() {
   const dayObj = plan.value.find((d) => d.id === activeDayId.value);
   if (!dayObj) return false;
 
-  const cityKey = dayObj.city || getDayCity(dayObj);
+  const info = getWeatherCityInfo(dayObj);
+  const cityKey = info.key;
   const city = CITY_COORDS[cityKey] || CITY_COORDS.Osaka;
+  weatherState.value.cityKey = cityKey;
+  weatherState.value.citySource = info.source || "default";
+
 
   weatherState.value.loading = true;
   weatherState.value.error = "";
@@ -4810,7 +5601,7 @@ async function reloadExpenses() {
   expensesError.value = "";
 
   try {
-    const q = query(collection(db, "trips", DEFAULT_TRIP_ID, "expenses"), orderBy("createdAt", "desc"));
+    const q = query(collection(db, "trips", activeTripId, "expenses"), orderBy("createdAt", "desc"));
     const snap = await getDocs(q);
 
     expenses.value = snap.docs.map((d) => {
@@ -4872,7 +5663,7 @@ async function addExpenseFromFancy() {
   saveLocal("hm_expenses_cache", expenses.value);
 
   try {
-    await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, "expenses"), payload);
+    await addDoc(collection(db, "trips", activeTripId, "expenses"), payload);
     await reloadExpenses();
     accountingTab.value = "detail";
   } catch (e) {
@@ -5195,7 +5986,7 @@ async function saveBookingEdit(options = { keepOpen: false }) {
 
   try {
     if (!bookingEditor.value.isEdit) {
-      const docRef = await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, "bookings"), {
+      const docRef = await addDoc(collection(db, "trips", activeTripId, "bookings"), {
         ...payload,
         createdAt: serverTimestamp(),
       });
@@ -5203,7 +5994,7 @@ async function saveBookingEdit(options = { keepOpen: false }) {
       bookingEditor.value.originId = docRef.id;
       bookingEditor.value.isEdit = true;
     } else {
-      const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingEditor.value.originId);
+      const refDoc = doc(db, "trips", activeTripId, "bookings", bookingEditor.value.originId);
       await updateDoc(refDoc, payload);
     }
 
@@ -5222,7 +6013,7 @@ async function deleteBooking() {
   if (!confirm("確定要刪除此預定？")) return;
 
   try {
-    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingEditor.value.originId);
+    const refDoc = doc(db, "trips", activeTripId, "bookings", bookingEditor.value.originId);
     await deleteDoc(refDoc);
 
     closeBookingEditor();
@@ -5311,7 +6102,7 @@ async function deleteEventPhoto() {
     ev.photoPath = "";
 
     // ✅ 3) 寫回 Firestore（去掉 showNote）
-    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const dayRef = doc(db, "trips", activeTripId, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
     await updateDoc(dayRef, { events: eventsToSave });
 
@@ -5349,7 +6140,7 @@ async function uploadEventPhoto() {
     const upFile = await withTimeout(compressImageToJpeg(raw, 1600, 0.8), 20000, "圖片壓縮");
 
     const safeName = `${Date.now()}-${String(upFile.name || "event").replace(/[^\w.\-]+/g, "_")}`;
-    const path = `trips/${DEFAULT_TRIP_ID}/plan_photos/${dayId}/${idx}/${safeName}`;
+    const path = `trips/${activeTripId}/plan_photos/${dayId}/${idx}/${safeName}`;
 
     const storageRef = sRef(storage, path);
     eventPhotoTask = uploadBytesResumable(storageRef, upFile, {
@@ -5375,7 +6166,7 @@ async function uploadEventPhoto() {
     dayObj.events[idx].photoPath = path;
 
     // ✅ 寫回 Firestore（去掉 showNote）
-    const dayRef = doc(db, "trips", DEFAULT_TRIP_ID, "plan", dayId);
+    const dayRef = doc(db, "trips", activeTripId, "plan", dayId);
     const eventsToSave = dayObj.events.map(({ showNote, ...rest }) => rest);
     await updateDoc(dayRef, { events: eventsToSave });
 
@@ -5435,7 +6226,7 @@ async function uploadBookingCover() {
     const raw = bookingCoverFile.value;
     const upFile = await withTimeout(compressImageToJpeg(raw, 1600, 0.8), 20000, "圖片壓縮");
 
-    const tripId = DEFAULT_TRIP_ID;
+    const tripId = activeTripId;
     const bookingId = bookingEditor.value.originId;
 
     // 固定檔名：cover.jpg（重傳覆蓋）
@@ -5473,7 +6264,7 @@ async function uploadBookingCover() {
     const url = await getDownloadURL(bookingCoverTask.snapshot.ref);
 
     // ✅ 寫回 Firestore
-    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingId);
+    const refDoc = doc(db, "trips", activeTripId, "bookings", bookingId);
     const coverName = upFile.name || "cover.jpg";
 
     await updateDoc(refDoc, {
@@ -5620,7 +6411,7 @@ async function uploadBookingVoucher() {
       ? raw
       : await withTimeout(compressImageToJpeg(raw, 1600, 0.8), 20000, "圖片壓縮");
 
-    const tripId = DEFAULT_TRIP_ID;
+    const tripId = activeTripId;
     const bookingId = bookingEditor.value.originId;
 
     // ✅ 固定檔名（同類型重傳會覆蓋 update，不會一直堆垃圾檔）
@@ -5660,7 +6451,7 @@ async function uploadBookingVoucher() {
     const url = await getDownloadURL(bookingVoucherTask.snapshot.ref);
 
     // ✅ 寫回 Firestore（列表/編輯視窗都能開啟）
-    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "bookings", bookingId);
+    const refDoc = doc(db, "trips", activeTripId, "bookings", bookingId);
     const voucherName = upFile.name || objName;
     const voucherType = isPdf ? "pdf" : "image";
 
@@ -5733,7 +6524,7 @@ async function saveExpenseEdit() {
   if (!isFiniteNumber(f.amount) || Number(f.amount) <= 0) return alert("金額要大於 0");
 
   try {
-    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "expenses", origin.id);
+    const refDoc = doc(db, "trips", activeTripId, "expenses", origin.id);
     await updateDoc(refDoc, {
       date: f.date,
       amount: Number(f.amount),
@@ -5758,7 +6549,7 @@ async function deleteExpense() {
   if (!confirm("確定要刪除此筆記帳？")) return;
 
   try {
-    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, "expenses", origin.id);
+    const refDoc = doc(db, "trips", activeTripId, "expenses", origin.id);
     await deleteDoc(refDoc);
     await reloadExpenses();
     closeExpenseEditor();
@@ -5836,7 +6627,7 @@ async function savePrepEditor() {
   if (!text) return alert("選項文字不可空白");
 
   try {
-    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, key, prepEditor.value.originId);
+    const refDoc = doc(db, "trips", activeTripId, key, prepEditor.value.originId);
     await updateDoc(refDoc, {
       text,
       note,
@@ -5859,7 +6650,7 @@ async function deletePrepFromEditor() {
   try {
     const kind = prepEditor.value.kind;
     const key = prepCollectionKey(kind);
-    await deleteDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, prepEditor.value.originId));
+    await deleteDoc(doc(db, "trips", activeTripId, key, prepEditor.value.originId));
 
     closePrepEditor();
     
@@ -5982,7 +6773,7 @@ async function onPrepDrop(kind, it, ev) {
 
     // 更新雲端
     const key = prepCollectionKey(kind);
-    await updateDoc(doc(db, "trips", DEFAULT_TRIP_ID, key, x.id), { order: newOrder });
+    await updateDoc(doc(db, "trips", activeTripId, key, x.id), { order: newOrder });
   }
 }
 
@@ -6034,7 +6825,7 @@ function subscribeBookings() {
   if (unsubBookings) unsubBookings();
 
   bookingLoading.value = true;
-  const qy = query(collection(db, "trips", DEFAULT_TRIP_ID, "bookings"), orderBy("createdAt", "desc"));
+  const qy = query(collection(db, "trips", activeTripId, "bookings"), orderBy("createdAt", "desc"));
 
   unsubBookings = onSnapshot(
     qy,
@@ -6111,7 +6902,7 @@ function subscribePrepList(kind) {
   prep.value[kind].loading = true;
   prep.value[kind].error = "";
 
-  const q = query(collection(db, "trips", DEFAULT_TRIP_ID, key), orderBy("createdAt", "desc"));
+  const q = query(collection(db, "trips", activeTripId, key), orderBy("createdAt", "desc"));
   const unsub = onSnapshot(
     q,
     (snap) => {
@@ -6149,7 +6940,7 @@ async function addPrepItem(kind) {
 
   try {
     const key = prepCollectionKey(kind);
-    await addDoc(collection(db, "trips", DEFAULT_TRIP_ID, key), {
+    await addDoc(collection(db, "trips", activeTripId, key), {
       text,
       note: "",
       done: false,
@@ -6177,7 +6968,7 @@ async function togglePrepEditMode(kind, list) {
 
       for (const item of list) {
         await updateDoc(
-          doc(db, "trips", DEFAULT_TRIP_ID, key, item.id),
+          doc(db, "trips", activeTripId, key, item.id),
           { text: String(item.text || "").trim(), updatedAt: serverTimestamp() }
         );
       }
@@ -6229,7 +7020,7 @@ async function togglePrepDone(kind, item) {
 
   try {
     const key = prepCollectionKey(kind);
-    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, key, item.id);
+    const refDoc = doc(db, "trips", activeTripId, key, item.id);
 
     // ✅ 勾選後移到底：我們把 order 設成現在時間（越大越後）
     // 取消勾選也給新 order，避免回到很前面造成「跳來跳去」
@@ -6279,7 +7070,7 @@ async function deletePrepItem(kind, item) {
 
   try {
     const key = prepCollectionKey(kind);
-    const refDoc = doc(db, "trips", DEFAULT_TRIP_ID, key, item.id);
+    const refDoc = doc(db, "trips", activeTripId, key, item.id);
     await deleteDoc(refDoc);
   } catch (e) {
     console.error("刪除清單失敗：", e);
@@ -6355,16 +7146,36 @@ function round2(n) {
 
 // ✅ 小工具：加 timeout，避免卡住導致你以為「更新失敗」
 async function fetchJsonWithTimeout(url, ms = 8000) {
+  // ✅ 某些舊 iOS / WebView 可能沒有 fetch
+  if (typeof fetch !== "function") {
+    throw new Error("fetch is not supported in this environment");
+  }
+
+  // ✅ AbortController 不存在時：用 Promise.race 做 timeout（不 abort，但至少不會白畫面）
+  const hasAbort = typeof AbortController === "function";
+
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error("timeout")), ms);
+  });
+
+  if (!hasAbort) {
+    const res = await Promise.race([fetch(url), timeoutPromise]);
+    if (!res || !res.ok) throw new Error(`HTTP ${res?.status || "unknown"}`);
+    return await res.json();
+  }
+
+  // ✅ 支援 AbortController：正常 abort timeout
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
-    const res = await fetch(url, { signal: ctrl.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res = await Promise.race([fetch(url, { signal: ctrl.signal }), timeoutPromise]);
+    if (!res || !res.ok) throw new Error(`HTTP ${res?.status || "unknown"}`);
     return await res.json();
   } finally {
     clearTimeout(t);
   }
 }
+
 
 async function refreshFxTool() {
   try {

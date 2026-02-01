@@ -697,6 +697,18 @@ body{
   max-width:100%;
 }
 
+/* ✅ 記帳：日期欄位外層也要能縮，避免 iOS date input 撐爆 */
+.acc-date{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow:hidden; /* 保險：就算瀏覽器硬撐，也不會溢出畫面 */
+}
+
+.acc-date .acc-input[type="date"]{
+  display:block;   /* 避免 inline 元素的怪寬度行為 */
+  width:100%;
+}
 
 
 .acc-grid-2{
@@ -914,6 +926,7 @@ body{
 /* =============== Prep segmented 3 =============== */
 .segmented-3{ grid-template-columns:repeat(3, 1fr); }
 .segmented-4{ grid-template-columns:repeat(4, 1fr); }
+.segmented-5{ grid-template-columns:repeat(5, 1fr); }
 /* ✅ Prep：待辦/行李/購物 置頂（滑動時黏住） */
 .prep-sticky{
   position: sticky;
