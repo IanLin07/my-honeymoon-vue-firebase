@@ -272,7 +272,7 @@ body{
   display:flex;
   gap:10px;
   align-items:flex-start;     /* ✅ 讓文字可多行時不會把按鈕垂直置中造成擠壓 */
-  flex-wrap:wrap;             /* ✅ 小螢幕允許換行 */
+  flex-wrap:nowrap;             /* ✅ 小螢幕允許換行 */
 }
 
 /* 讓文字區可縮，避免把按鈕推到畫面外 */
@@ -318,7 +318,7 @@ body{
 
 .event-body{ flex:1; min-width:0; }
 .event-loc{ font-size:14px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.event-stay{ margin-top:4px; font-size:12px; opacity:.75; font-weight:700; }
+.event-stay{ margin-top:2px; font-size:12px; opacity:.75; font-weight:700; }
 .event-actions{ display:flex; gap:8px; justify-content:flex-end; align-items:center; }
 
 
