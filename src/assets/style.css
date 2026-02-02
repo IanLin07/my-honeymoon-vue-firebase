@@ -302,7 +302,7 @@ body{
   font-size:14px;
   font-weight:900;
 
-  white-space:normal;         /* ✅ 允許換行 */
+  white-space:nowrap;         /* ✅ 允許換行 */
   overflow:hidden;
   text-overflow:ellipsis;
 
