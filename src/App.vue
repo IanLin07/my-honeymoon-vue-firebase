@@ -205,6 +205,7 @@
                       @pointerup.stop
                       @touchend.stop
                       @click.stop="openNavigation(event.loc)"
+                      title="導航"
                     >
                       📍
                     </button>
@@ -229,6 +230,7 @@
                       @pointerup.stop
                       @touchend.stop
                       @click.stop="toggleNote(day.id, idx)"
+                      title="筆記"
                     >
                       📝
                     </button>

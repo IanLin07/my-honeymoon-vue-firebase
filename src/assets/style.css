@@ -271,14 +271,25 @@ body{
 .event-row{
   display:flex;
   gap:10px;
-  align-items:flex-start;     /* ✅ 讓文字可多行時不會把按鈕垂直置中造成擠壓 */
-  flex-wrap:wrap;             /* ✅ 小螢幕允許換行 */
+  /*align-items:flex-start;     /* ✅ 讓文字可多行時不會把按鈕垂直置中造成擠壓 */
+  /*flex-wrap:wrap;             /* ✅ 小螢幕允許換行 */
+  align-items: center;   /* 2. 改為 nowrap：強制不換行，確保按鈕永遠在右側，不掉到下面浪費空間 */
+  flex-wrap: nowrap;
 }
 
 /* 讓文字區可縮，避免把按鈕推到畫面外 */
 .event-body{
   flex:1;
   min-width:0;
+}
+
+/* 按鈕區：永遠不要被壓縮出畫面 */
+.event-actions{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+  align-items:center;
+  flex:0 0 auto;              /* ✅ 不被文字擠壓 */
 }
 
 /* ✅ 行程名稱：允許換行，最多 2 行，超過用省略號 */
@@ -296,14 +307,7 @@ body{
   line-height:1.25;
 }
 
-/* 按鈕區：永遠不要被壓縮出畫面 */
-.event-actions{
-  display:flex;
-  gap:8px;
-  justify-content:flex-end;
-  align-items:center;
-  flex:0 0 auto;              /* ✅ 不被文字擠壓 */
-}
+
 
 /* ✅ 手機更保險：按鈕整排掉到下一行（不佔橫向空間） */
 @media (max-width: 420px){
