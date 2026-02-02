@@ -268,68 +268,56 @@ body{
 }
 
 /* 右側卡片內：標題 + 按鈕列（手機避免被擠出螢幕） */
-.event-row{
-  display:flex;
-  gap:10px;
-  /*align-items:flex-start;     /* ✅ 讓文字可多行時不會把按鈕垂直置中造成擠壓 */
-  /*flex-wrap:wrap;             /* ✅ 小螢幕允許換行 */
-  align-items: center;   /* 2. 改為 nowrap：強制不換行，確保按鈕永遠在右側，不掉到下面浪費空間 */
-  flex-wrap: nowrap;
+/* 1. 外層容器：確保文字與按鈕永遠在同一列，不換行 */
+.event-row {
+  display: flex;
+  gap: 12px;
+  align-items: center; /* 讓按鈕對齊左邊兩行文字的中心點 */
+  flex-wrap: nowrap;   /* 強制不換行，節省空間 */
   width: 100%;
 }
 
-/* 讓文字區可縮，避免把按鈕推到畫面外 */
-.event-body{
-  flex:1;
-  min-width:0;
-  /**/
+/* 2. 文字區：負責標題與時間的上下排列 */
+.event-body {
+  flex: 1;
+  min-width: 0;        /* 重要：允許文字區縮小，防止擠開按鈕 */
   display: flex;
-  flex-direction: column; /* 關鍵：確保標題與時間是上下排列 */
-  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* 按鈕區：永遠不要被壓縮出畫面 */
-.event-actions{
-  display:flex;
-  gap:8px;
-  justify-content:flex-end;
+/* 3. 標題：修正消失的問題 */
+.event-loc {
+  font-size: 14px;
+  font-weight: 900;
+  color: #18322b;
+  line-height: 1.25;
+
+  /* 修正處：刪除 white-space: nowrap，改用以下設定來支援多行省略 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; /* 最多顯示 2 行，超過顯示 ... */
+  overflow: hidden;
+  word-break: break-all; /* 避免長英文/網址撐破 */
+}
+
+/* 4. 停留時間：確保文字橫向排列 */
+.event-stay {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.75;
+  white-space: nowrap; /* 確保時間與圖示不拆行 */
+}
+
+/* 5. 按鈕區：固定在右側 */
+.event-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;      /* 禁止按鈕被縮小 */
   align-items: center;
-  flex-shrink: 0;
 }
 
-/* ✅ 行程名稱：允許換行，最多 2 行，超過用省略號 */
-.event-loc{
-  font-size:14px;
-  font-weight:900;
-
-  white-space:nowrap;         /* ✅ 允許換行 */
-  overflow:hidden;
-  text-overflow:ellipsis;
-
-  display:-webkit-box;        /* ✅ 多行省略 */
-  -webkit-box-orient:vertical;
-  -webkit-line-clamp:2;       /* ✅ 最多 2 行 */
-  line-height:1.25;
-}
-
-
-
-/* ✅ 手機更保險：按鈕整排掉到下一行（不佔橫向空間） */
-@media (max-width: 420px){
-  .event-actions{
-    width:100%;
-    margin-top:8px;
-  }
-}
-
-
-
-
-.event-body{ flex:1; min-width:0; }
-.event-loc{ font-size:14px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.event-stay{ margin-top:4px; font-size:12px; opacity:.75; font-weight:700;white-space: nowrap; }
-.event-actions{ display:flex; gap:8px; justify-content:flex-end; align-items:center; }
-
+/* --- 注意：請刪除原本 420px 以下讓 .event-actions 變成 width: 100% 的那段 media query --- */
 
 
 
