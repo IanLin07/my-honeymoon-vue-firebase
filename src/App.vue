@@ -1554,11 +1554,6 @@
       </div>
 
 
-      <!-- ===== 購物（從準備頁移到備用頁；沿用 trips/{tripId}/prep_shopping） ===== -->
-
-
-
-
 
 
         
@@ -1653,6 +1648,7 @@
               :key="it.id"
               type="button"
               class="snack-thumb"
+              :class="{ 'is-checked': it.done === true }"
               @click="openSnackPhoto(it)"
               :title="it.title || '開啟照片'"
             >
@@ -2279,7 +2275,7 @@ import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteOb
 
 // ✅ 你要「改回 DEFAULT_TRIP_ID」：這裡就是唯一來源
 const DEFAULT_TRIP_ID = "HM-8F3K2A";
-
+const trips = ref([]);
 // ✅ 允許切換旅程，所以要用 let（後面 switchTrip / createNewTrip 會重新指定）
 let activeTripId = localStorage.getItem("activeTripId") || DEFAULT_TRIP_ID;
 
@@ -3577,6 +3573,7 @@ watch(
 
 onMounted(async () => {
 
+
   // ===== Mobile: 禁止縮放（pinch / ctrl+wheel）保險 =====
   const preventZoom = (e) => {
     if (e.cancelable) e.preventDefault();
@@ -3851,29 +3848,39 @@ function computeEndDate(startDate, days) {
 }
 
 // ===================== Trip history（下拉選單資料來源） =====================
+
 function getTripHistory() {
   try {
     const raw = localStorage.getItem("tripIdHistory");
     const arr = raw ? JSON.parse(raw) : [];
-    const list = Array.isArray(arr) ? arr.map((s) => String(s || "").trim()).filter(Boolean) : [];
 
-    // 保底：永遠包含預設與目前旅程
+    const history = Array.isArray(arr)
+      ? arr.map((s) => String(s || "").trim()).filter(Boolean)
+      : [];
+
+    // ✅ 一定要包含：預設 + 目前旅程
     const base = [DEFAULT_TRIP_ID, activeTripId].filter(Boolean);
-    const merged = [...base, ...list];
 
-    // unique + keep order
+    // ✅ 正確合併（原本這裡寫錯）
+    const merged = [...base, ...history];
+
+    // ✅ 去重 + 保留順序
     const seen = new Set();
     const out = [];
     for (const id of merged) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      out.push(id);
+      if (!seen.has(id)) {
+        seen.add(id);
+        out.push(id);
+      }
     }
-    return out.slice(0, 20); // 最多保留 20 個
-  } catch {
-    return [DEFAULT_TRIP_ID, activeTripId].filter(Boolean);
+
+    return out.slice(0, 30);
+  } catch (e) {
+    console.warn("[getTripHistory] failed:", e);
+    return [DEFAULT_TRIP_ID];
   }
 }
+
 
 async function fetchMyTripIds() {
   try {

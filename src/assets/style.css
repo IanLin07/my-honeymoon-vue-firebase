@@ -24,7 +24,6 @@ button, input, select, textarea{
   }
 }
 
-
 * { box-sizing: border-box; }
 
 body{
@@ -142,7 +141,6 @@ body{
   flex:0 0 auto;
 }
 
-
 .weather-right{ width:110px; display:flex; flex-direction:column; align-items:flex-end; }
 
 .weather-city{ display:flex; gap:8px; align-items:center; font-weight:900; letter-spacing:.4px; opacity:.95; }
@@ -203,7 +201,6 @@ body{
 
 .day-title{ margin:10px 2px 10px 2px; font-size:16px; font-weight:900; }
 
-
 /* =============== Event card =============== */
 /* 外層：左時間軸 + 右卡片（卡片寬度會等於筆記寬度） */
 .event-item{
@@ -212,8 +209,6 @@ body{
   align-items:stretch;
   margin-bottom:10px;
 }
-
-
 
 .time-text{
   font-weight:1000;
@@ -319,9 +314,6 @@ body{
 
 /* --- 注意：請刪除原本 420px 以下讓 .event-actions 變成 width: 100% 的那段 media query --- */
 
-
-
-
 .note-panel{ margin-top:10px; border-radius:16px; background:#eaf2ff; padding:10px; }
 .note-textarea{
   width:100%; min-height:150px; resize:vertical;
@@ -338,7 +330,6 @@ body{
   border-radius:16px;
   padding:12px;
 }
-
 
 .note-between-head{
   display:flex;
@@ -367,9 +358,6 @@ body{
   box-sizing: border-box;
 }
 
-
-
-
 /* =============== Cards / forms =============== */
 .card{
   background:#fff;
@@ -396,11 +384,9 @@ body{
   min-width: 0;
 }
 
-
 .field{ display:block; }
 .field-span{ grid-column:1 / -1; }
 .field-label{ font-size:12px; font-weight:900; opacity:.75; margin-bottom:6px; }
-
 
 .field-input{
   width:100%;
@@ -430,7 +416,6 @@ body{
   appearance: none;
 }
 
-
 .row-right{ margin-top:12px; display:flex; gap:10px; justify-content:flex-end; }
 
 .stay-grid{
@@ -447,9 +432,6 @@ body{
   min-width: 0;
 }
 
-
-
-
 /* =============== Buttons =============== */
 
 /* ✅ 手機可用性：可點擊區至少 44px（Apple HIG 常用基準） */
@@ -464,8 +446,6 @@ body{
   min-height: 44px;
 }
 
-
-
 .btn{
   border:0;
   border-radius:14px;
@@ -475,7 +455,6 @@ body{
   transition:transform .12s ease, opacity .12s ease;
   touch-action: manipulation; /* ✅ 手機點擊更穩 */
 }
-
 
 .btn:active{ transform:scale(.98); }
 
@@ -498,8 +477,6 @@ body{
   min-height: 48px;      /* ✅ 更好按 */
   padding: 12px 14px;    /* ✅ 比 btn-mini 更有份量 */
 }
-
-
 
 .loading{ margin-top:18px; font-weight:900; opacity:.75; }
 .empty-state{
@@ -542,7 +519,6 @@ body{
   pointer-events: auto;
   touch-action: manipulation;
 }
-
 
 /* ✅ 讓手機點按更穩（避免 300ms 延遲/雙擊縮放干擾） */
 .event-actions .btn{
@@ -598,7 +574,6 @@ body{
 @media (prefers-reduced-motion: reduce){
   .nav-item.pulse{ animation:none; }
 }
-
 
 .nav-item:active{ transform:scale(.98); }
 .nav-item.active{ background:rgba(79,182,255,.16); }
@@ -748,7 +723,6 @@ body{
   appearance: none;
 }
 
-
 /* ✅ 記帳：日期欄位外層也要能縮，避免 iOS date input 撐爆 */
 .acc-date{
   width:100%;
@@ -762,7 +736,6 @@ body{
   width:100%;
 }
 
-
 .acc-grid-2{
   display:grid;
   grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
@@ -773,7 +746,6 @@ body{
 .acc-grid-2 > *{
   min-width:0;
 }
-
 
 .acc-pills{ display:flex; gap:10px; flex-wrap:wrap; }
 .acc-pill{
@@ -1001,7 +973,6 @@ body{
   box-shadow: 0 10px 18px rgba(0,0,0,.06);
 }
 
-
 /* =============== Tools: FX converter =============== */
 .fx-row{
   display:grid;
@@ -1114,7 +1085,7 @@ body{
 /* ✅ Backup：手機不爆版（標題與按鈕允許換行） */
 .backup-head{
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   gap:12px;
   flex-wrap:wrap;
 }
@@ -1122,7 +1093,7 @@ body{
 /* ✅ Backup：標題左側勾選 */
 .backup-head-left{
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   gap:10px;
   flex:1;
   min-width:0;
@@ -1141,7 +1112,6 @@ body{
   background:transparent;
 }
 
-
 .backup-check-input{
   width:18px;
   height:18px;
@@ -1150,14 +1120,12 @@ body{
 /* ✅ 勾選後：淡化但仍清楚可讀 */
 .backup-title.is-done{
   opacity:.55;
-  text-decoration: line-through;
+  text-decoration: none;
 }
-
 
 .backup-pills{
   max-width: 100%;
 }
-
 
 .backup-title{
   flex: 1;
@@ -1171,7 +1139,6 @@ body{
   word-break: break-word;
   line-height: 1.2;
 }
-
 
 .backup-pills{
   display:flex;
@@ -1227,7 +1194,6 @@ body{
   .backup-title{ font-size: 18px; }
   .backup-pill{ padding: 9px 14px; font-size: 15px; }
 }
-
 
 .booking-top{
   display:flex;
@@ -1387,9 +1353,6 @@ body{
   font-weight:1000;
   opacity:.85;
 }
-
-
-
 
 /* =============== Prep drag handle =============== */
 .drag-handle{
@@ -1577,7 +1540,6 @@ body{
   min-width: 0;
 }
 
-
 .prep-edit-input{
   flex: 1;
   min-width: 0;
@@ -1588,7 +1550,6 @@ body{
   font-size: 16px; /* 手機避免 iOS 放大 */
   background: #fff;
 }
-
 
 /* 行李/機型列 */
 .booking-card.booking-card2 .bk2-meta{
@@ -1663,10 +1624,6 @@ body{
   opacity: .55;
 }
 
-
-
-
-
 /* 手機：卡片更貼邊 */
 @media (max-width: 420px){
   .booking-card.booking-card2{
@@ -1674,7 +1631,6 @@ body{
     margin: 12px 10px;
   }
 }
-
 
 .bk2-top-actions{
   display:flex;
@@ -1708,7 +1664,6 @@ body{
   pointer-events: none;
 }
 
-
 /* 檔名/狀態顯示（未選擇/已選擇合一） */
 .voucher-file-pill{
   font-weight:900;
@@ -1738,7 +1693,6 @@ body{
   overflow: hidden;      /* ✅ 確保圖片/placeholder 也跟著圓角 */
 }
 
-
 .stay-hero-img,
 .stay-hero-placeholder{
   width: 100%;
@@ -1747,7 +1701,6 @@ body{
   display: block;
   border-radius: 22px; /* ✅ iOS/部分瀏覽器更穩 */
 }
-
 
 .stay-hero-placeholder{
   background: linear-gradient(135deg, rgba(79,182,255,.22), rgba(255,223,122,.22));
@@ -1824,7 +1777,6 @@ body{
   white-space: nowrap;
 }
 
-
 .stay-datebox{
   background: #fff;
   border: 2px solid rgba(0,0,0,.06);
@@ -1879,8 +1831,6 @@ body{
   min-width:0;
 }
 
-
-
 .stay-section-icon{
   width: 22px;
   height: 22px;
@@ -1924,7 +1874,6 @@ body{
   flex-shrink: 0;
   white-space: nowrap;
 }
-
 
 .stay-cost{
   background: rgba(255,223,122,.35);
@@ -1999,7 +1948,6 @@ body{
   margin: 12px 0 0;
 }
 
-
 /* ===== Itinerary: time on top, full width card ===== */
 
 /* 保險：即使殘留，也強制不顯示時間軸元件 */
@@ -2043,8 +1991,6 @@ body{
   max-width: 100%;
   box-sizing: border-box;
 }
-
-
 
 /* 住宿卡片：訂位碼 + 憑證同列（訂位碼在左、憑證在右） */
 .stay-hero-top{
@@ -2129,6 +2075,14 @@ body{
   cursor: pointer;
 }
 
+/* ✅ Backup 圖片：被核取時高亮邊框（同核取方塊色） */
+.snack-thumb.is-checked{
+  box-shadow:
+    0 0 0 3px #01b7cf,        /* 主色邊框（與 checkbox 一致） */
+    0 10px 22px rgba(0,0,0,.10);
+}
+
+
 .snack-thumb:active{
   transform: scale(0.98);
 }
@@ -2212,7 +2166,6 @@ body{
   background: rgba(255, 165, 0, .14);
   font-weight: 900;
 }
-
 
 .member-top{
   display: flex;
@@ -2324,7 +2277,6 @@ body{
   text-align:right;
 }
 
-
 .perm-btn{
   border: 1px solid rgba(0,0,0,.15);
   background: #fff;
@@ -2344,7 +2296,6 @@ body{
 .perm-btn:disabled{
   opacity: .45;
 }
-
 
 .member-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; opacity: .8; }
@@ -2420,7 +2371,6 @@ body{
   height: 18px;
 }
 
-
 .invite-box {
   margin-top: 12px;
   padding: 12px;
@@ -2460,9 +2410,7 @@ body{
   word-break: break-word;
 }
 
-
 @media (max-width: 420px){
   .booking-stay-card{ border-radius: 24px; }
   .stay-title{ font-size: 22px; }
 }
-
