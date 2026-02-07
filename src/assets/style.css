@@ -1589,11 +1589,12 @@ body{
   border-radius: 999px;
 }
 
-/* 價格/購買日 */
+
+/* 價格/購買日 — 調整價格欄位寬度等同行李+航班號碼 */
 .booking-card.booking-card2 .bk2-bottom{
   margin: 12px 16px 14px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr  1fr; /* ✅ 原本 1fr 1fr 改成 2fr 1fr */
   gap: 10px;
 }
 

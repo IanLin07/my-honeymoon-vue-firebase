@@ -309,6 +309,7 @@
         <div v-if="eventEditor.open" class="modal-overlay" @click.self="closeEventEditor">
           <div class="modal">
             <div class="modal-title">🗓️ 編輯行程</div>
+            
             <div class="modal-subtitle">
               你可以修改地點、停留時間（以及時間）。新增/刪除也在這裡完成。
               <span v-if="!canWrite" style="opacity:.75;">（目前是只讀模式）</span>
@@ -653,16 +654,13 @@
               </div>
 
               <div v-else class="bk2-route bk2-route-simple">
-                <div class="bk2-simple-title">{{ b.title || "（未命名）" }}</div>
-
-                <div class="bk2-simple-sub">
                   <span class="bk2-simple-sub-label">{{ b.type === "voucher" ? "使用日期" : "日期" }}</span>
                   <span class="bk2-simple-sub-date">
                     {{
                       (b.type === "voucher" ? (b.usageDate || b.date) : b.date) || "—"
                     }}
                   </span>
-                </div>
+                
               </div>
 
               <!-- ✅ baggage / aircraft：只有機票顯示 -->
@@ -681,7 +679,7 @@
 
               <div class="bk2-bottom">
                 <div class="bk2-box">
-                  <div class="bk2-box-label">價格</div>
+                  <div class="bk2-simple-sub-label">價格</div>
                   <div class="bk2-box-value">
                     {{ b.priceTwd ? `NT$${formatNumber(b.priceTwd)}` : "—" }}
                   </div>
