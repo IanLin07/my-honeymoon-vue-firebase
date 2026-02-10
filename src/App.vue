@@ -36,7 +36,7 @@
           <button v-if="!user" class="btn btn-secondary" @click="loginGoogle">Google 登入</button>
           <button v-if="user" class="btn btn-ghost" @click="logout">登出</button>
           <button
-            v-if="user && isMember"
+            
             class="btn btn-ghost"
             type="button"
             @click="openTripModal"
@@ -679,7 +679,7 @@
 
               <div class="bk2-bottom">
                 <div class="bk2-box">
-                  <div class="bk2-simple-sub-label">價格</div>
+                  <div class="bk2-box-label">價格</div>
                   <div class="bk2-box-value">
                     {{ b.priceTwd ? `NT$${formatNumber(b.priceTwd)}` : "—" }}
                   </div>
@@ -3774,11 +3774,30 @@ async function openTripModal() {
   // ✅ trip switch UI
   tripModal.selectedTripId = activeTripId;
 
-  // ✅ 下拉 trip 清單：localStorage 歷史 + Firestore 你加入過的 trips
+  // ✅ 下拉 trip 清單：逐一驗證 membership（避免 collectionGroup 被 rules 擋）
   const history = getTripHistory();
-  const mine = await fetchMyTripIds();
-  const merged = [...new Set([DEFAULT_TRIP_ID, activeTripId, ...history, ...mine].filter(Boolean))];
-  tripModal.knownTripIds = merged.slice(0, 30);
+  const allowedTripIds = [];
+
+  for (const tid of history) {
+    try {
+      const ref = doc(db, "trips", tid, "members", auth.currentUser.uid);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        allowedTripIds.push(tid);
+      }
+    } catch (e) {
+      // 無權限或不存在就略過
+    }
+  }
+
+  // ✅ owner 預設 trip 一定存在
+  if (!allowedTripIds.includes(DEFAULT_TRIP_ID)) {
+    allowedTripIds.unshift(DEFAULT_TRIP_ID);
+  }
+
+  // 去重後指派
+  tripModal.knownTripIds = [...new Set(allowedTripIds)];
+
 
   // ✅ 新旅程表單：不要讀現有 activeTripId 的 meta
   // （這裡可視需求改成你想要的預設值）
@@ -3857,7 +3876,7 @@ function getTripHistory() {
       : [];
 
     // ✅ 一定要包含：預設 + 目前旅程
-    const base = [DEFAULT_TRIP_ID, activeTripId].filter(Boolean);
+    const base = [DEFAULT_TRIP_ID, activeTripId,"HM-TG975E","HM-4GKV93"].filter(Boolean);
 
     // ✅ 正確合併（原本這裡寫錯）
     const merged = [...base, ...history];
@@ -3880,38 +3899,60 @@ function getTripHistory() {
 }
 
 
-async function fetchMyTripIds() {
-  try {
-    const u = auth.currentUser;
-    if (!u) return [];
 
-    // 透過 collectionGroup 掃描：trips/{tripId}/members/{uid}
-    const qy = query(
-      collectionGroup(db, "members"),
-      where(FieldPath.documentId(), "==", u.uid)
-    );
+// ✅ 修正版：從 Firebase 強制讀取所有相關旅程
+  async function fetchMyTripIds() {
+    console.log("[fetchMyTripIds] 開始讀取 Firebase 旅程...");
+    const u = user.value;
+    if (!u) {
+      console.log("[fetchMyTripIds] 使用者未登入，略過");
+      return [];
+    }
 
-    const snap = await getDocs(qy);
-    const ids = [];
+    const foundIds = new Set();
 
-    snap.forEach((d) => {
-      // d.ref: .../trips/{tripId}/members/{uid}
-      const tripId = d.ref?.parent?.parent?.id;
-      if (tripId) ids.push(String(tripId));
-    });
+    try {
+      // 🟢 查詢 1: 找「我是擁有者 (Owner)」的旅程
+      // 這通常不需要特殊索引即可運作
+      const qOwner = query(
+        collection(db, "trips"),
+        where("owner", "==", u.uid)
+      );
+      const snapOwner = await getDocs(qOwner);
+      snapOwner.forEach((d) => {
+        console.log(`[fetchMyTripIds] 找到擁有者旅程: ${d.id}`);
+        foundIds.add(d.id);
+      });
 
-    // unique + keep order
-    const seen = new Set();
-    return ids.filter((x) => {
-      if (!x || seen.has(x)) return false;
-      seen.add(x);
-      return true;
-    });
-  } catch (e) {
-    console.warn("[fetchMyTripIds] failed:", e);
-    return [];
+      // 🟢 查詢 2: 找「我是成員 (Member)」的旅程
+      // ⚠️ 注意：這需要 Firestore 索引。如果 Console 出現紅字，請點連結建立。
+      const qMembers = query(
+        collectionGroup(db, "members"),
+        where(FieldPath.documentId(), "==", u.uid)
+      );
+      
+      const snapMembers = await getDocs(qMembers);
+      snapMembers.forEach((d) => {
+        // d.ref.parent.parent.id 就是 tripId
+        const tripId = d.ref.parent.parent?.id;
+        if (tripId) {
+          console.log(`[fetchMyTripIds] 找到成員旅程: ${tripId}`);
+          foundIds.add(tripId);
+        }
+      });
+
+    } catch (e) {
+      console.error("[fetchMyTripIds] 讀取失敗:", e);
+      // ⚠️ 如果是索引錯誤，會在 Console 顯示連結
+      if (e.message.includes("requires an index")) {
+        console.warn("🔴 請打開 F12 Console，點擊錯誤訊息中的連結來建立索引！");
+      }
+    }
+
+    const result = Array.from(foundIds);
+    console.log(`[fetchMyTripIds] 最終回傳列表: ${result}`);
+    return result;
   }
-}
 
 
 function pushTripHistory(tripId) {
