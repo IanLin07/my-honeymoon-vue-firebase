@@ -54,7 +54,7 @@
         </div>
       </div>
 
-      <!-- 線上成員名單（只有登入才顯示） -->
+      
 
     </header>
 
@@ -1421,7 +1421,7 @@
 
 
       <div class="prep-sticky">
-        <div class="segmented backup-sticky">
+        <div class="segmented">
           <button class="seg-btn" :class="{ active: prepTab === 'todo' }" @click="prepTab='todo'">✅ 待辦</button>
           <button class="seg-btn" :class="{ active: prepTab === 'luggage' }" @click="prepTab='luggage'">🧳 行李</button>
         </div>
@@ -1537,21 +1537,22 @@
         @touchend="onBackupSwipeEnd($event)"
       >
 
-      <div class="segmented segmented-3 backup-sticky">
-        <button class="seg-btn" :class="{ active: backupTab === 'snacks' }" @click="backupTab='snacks'" type="button">
-          🍫 零食
-        </button>
+        <div class="backup-sticky">
+          <div class="segmented segmented-3">
+            <button class="seg-btn" :class="{ active: backupTab === 'snacks' }" @click="backupTab='snacks'" type="button">
+              🍫 零食
+            </button>
 
-        <button class="seg-btn" :class="{ active: backupTab === 'beauty' }" @click="backupTab='beauty'" type="button">
-          💄 美妝
-        </button>
+            <button class="seg-btn" :class="{ active: backupTab === 'beauty' }" @click="backupTab='beauty'" type="button">
+              💄 美妝
+            </button>
 
-        <button class="seg-btn" :class="{ active: backupTab === 'shopping' }" @click="backupTab='shopping'" type="button">
-          🛍️ 購物
-        </button>
-      </div>
+            <button class="seg-btn" :class="{ active: backupTab === 'shopping' }" @click="backupTab='shopping'" type="button">
+              🛍️ 購物
+            </button>
 
-
+          </div>
+        </div>
 
 
         
@@ -2029,7 +2030,7 @@
 
 
 
-        <!-- ✅ Trip switch / create / settings -->
+        <!-- ✅ Trip switch / create / settings 編輯旅程設定-->
         <div v-if="tripModal.open" class="modal-overlay" @click.self="closeTripModal">
           <div class="modal">
             <div class="modal-title">🧳 旅程設定</div>
@@ -2154,72 +2155,74 @@
         </div>
 
 
+    <!-- 導覽列-->   <!-- 當 currentPage === 'XXX' 為 true 時，就自動幫這個 button 加上 active 這個 class；反之就不加。-->
+    <!--底下的nav 套用兩個class 分別是bottom-nav及bottom-nav-6 --> 
+    <nav class="bottom-nav bottom-nav-6">
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'itinerary' }"
+        @click.stop="goPage('itinerary')"
+      >
+        <div class="nav-icon">🗓️</div>
+        <div class="nav-label">行程</div>
+      </button>
 
-<nav class="bottom-nav bottom-nav-6">
-  <button
-    type="button"
-    class="nav-item"
-    :class="{ active: currentPage === 'itinerary' }"
-    @click.stop="goPage('itinerary')"
-  >
-    <div class="nav-icon">🗓️</div>
-    <div class="nav-label">行程</div>
-  </button>
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'booking' }"
+        @click.stop="goPage('booking')"
+      >
+        <div class="nav-icon">🗂️</div>
+        <div class="nav-label">預定</div>
+      </button>
 
-  <button
-    type="button"
-    class="nav-item"
-    :class="{ active: currentPage === 'booking' }"
-    @click.stop="goPage('booking')"
-  >
-    <div class="nav-icon">🗂️</div>
-    <div class="nav-label">預定</div>
-  </button>
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'accounting' }"
+        @click.stop="goPage('accounting')"
+      >
+        <div class="nav-icon">🧾</div>
+        <div class="nav-label">記帳</div>
+      </button>
 
-  <button
-    type="button"
-    class="nav-item"
-    :class="{ active: currentPage === 'accounting' }"
-    @click.stop="goPage('accounting')"
-  >
-    <div class="nav-icon">🧾</div>
-    <div class="nav-label">記帳</div>
-  </button>
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'prep' }"
+        @click.stop="goPage('prep')"
+      >
+        <div class="nav-icon">🎒</div>
+        <div class="nav-label">準備</div>
+      </button>
 
-  <button
-    type="button"
-    class="nav-item"
-    :class="{ active: currentPage === 'prep' }"
-    @click.stop="goPage('prep')"
-  >
-    <div class="nav-icon">🎒</div>
-    <div class="nav-label">準備</div>
-  </button>
-
-  <button
-    type="button"
-    class="nav-item"
-    :class="{ active: currentPage === 'backup' }"
-    @click.stop="goPage('backup')"
-  >
-    <div class="nav-icon">🧷</div>
-    <div class="nav-label">備用</div>
-  </button>
-
-
-  <button
-    class="nav-item"
-    :class="{ active: currentPage === 'members' }"
-    @click="goPage('members')"
-    type="button"
-  >
-    <div class="nav-icon">👥</div>
-    <div class="nav-label">成員</div>
-  </button>
+      <button
+        type="button"
+        class="nav-item"
+        :class="{ active: currentPage === 'backup' }"
+        @click.stop="goPage('backup')"
+      >
+        <div class="nav-icon">🧷</div>
+        <div class="nav-label">備用</div>
+      </button>
 
 
+      <button
+        class="nav-item"
+        :class="{ active: currentPage === 'members' }"
+        @click="goPage('members')"
+        type="button"
+      >
+        <div class="nav-icon">👥</div>
+        <div class="nav-label">成員</div>
+      </button>
 
-</nav>
+   
+
+
+    </nav>
 
 
 

@@ -33,7 +33,13 @@ body{
   color:#18322b;
 }
 
-.app-shell{ min-height:100vh; display:flex; flex-direction:column; }
+
+
+.app-shell{
+  min-height: 100vh;        /* 讓整個 App 至少佔滿「一個視窗高度」（100% viewport height） */
+  display: flex;            /* 啟用 Flexbox，讓子元素用彈性排版 */
+  flex-direction: column;   /* 子元素「由上到下」垂直排列（header → main → footer/nav） */
+}
 
 .app-header{ padding:14px 14px 8px 14px; }
 .app-title{ font-size:22px; font-weight:800; letter-spacing:.3px; }
@@ -200,6 +206,9 @@ body{
 .weather-loading,.weather-error{ margin-top:8px; font-size:12px; font-weight:700; opacity:.95; }
 
 .day-title{ margin:10px 2px 10px 2px; font-size:16px; font-weight:900; }
+
+
+
 
 /* =============== Event card =============== */
 /* 外層：左時間軸 + 右卡片（卡片寬度會等於筆記寬度） */
@@ -488,7 +497,9 @@ body{
   opacity:.75;
 }
 
-/* =============== Bottom nav =============== */
+/* =============== Bottom nav =============== */  /*導覽區的樣式*/
+
+/*導覽區的樣式*/
 .bottom-nav{
   position:fixed;
   left:0; right:0; bottom:0;
@@ -515,37 +526,53 @@ body{
   touch-action: manipulation;
 }
 
+.bottom-nav-6{ grid-template-columns:repeat(6,1fr); }
+/*等同於grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;   這段的意思是將底下的導航按鈕切成6個區段*/
+
+
 .nav-item{
-  pointer-events: auto;
-  touch-action: manipulation;
+  pointer-events: auto;/* 允許這個元素接收滑鼠 / 觸控事件（確保可以被點擊） */
+  touch-action: manipulation;/* 告訴瀏覽器：這是「按鈕操作」，避免雙擊縮放、300ms 延遲，讓手機點擊更即時 */
 }
 
-/* ✅ 讓手機點按更穩（避免 300ms 延遲/雙擊縮放干擾） */
+/* ✅ 讓手機點按更穩（避免 300ms 延遲/雙擊縮放干擾） */  /*在 .event-actions 裡面的所有 .btn 按鈕都要套用這個class*/
 .event-actions .btn{
   touch-action: manipulation;
 }
 
-/*.bottom-nav-4{ grid-template-columns:repeat(4,1fr); }*/
-/*.bottom-nav-5{ grid-template-columns:repeat(5,1fr); }*/
-.bottom-nav-6{ grid-template-columns:repeat(6,1fr); }
-.bottom-nav-7{ grid-template-columns:repeat(7,1fr); }
+
+
+
 
 .nav-item .nav-ico { font-size: 16px; line-height: 1; }
 .nav-item .nav-txt { font-size: 11px; line-height: 1.1; white-space: nowrap; }
 
 .nav-item{
-  border:0;
-  background:transparent;
-  border-radius:18px;
-  cursor:pointer;
-  display:grid;
-  place-items:center;
-  gap:4px;
-  padding:8px;
+
+  border:0;  /* 移除 button 預設邊框，避免不同瀏覽器出現不一致外框 */
+  background:transparent;  /* 背景透明，讓底部導覽列的背景色或 active 狀態顯示 */
+  border-radius:18px;  /* 圓角 18px，符合整個 App 的圓潤卡片風格，也避免按鈕太硬 */
+  cursor:pointer;  /* 滑鼠移上去顯示手型，明確告訴使用者「這是可以點的」 */
+  display:grid;  /* 使用 CSS Grid，方便快速置中內容（icon + label） */
+  place-items:center;  /* 等同於 align-items + justify-items = center
+                         → icon 與文字同時水平、垂直置中 */
+  gap:4px;  /* icon 與文字之間的間距，避免貼太近又不浪費空間 */
+  padding:8px;  /* 內距，撐開可點擊區域
+                搭配 min-height 讓手機上更好點 */
   transition:transform .12s ease, background .12s ease;
+                  /* 點擊時的動畫過渡：
+                    - transform：縮放 / 彈跳
+                    - background：active 狀態變色
+                    0.12s 快速、靈敏、不拖泥帶水 */
   position:relative;
+                  /* 建立定位基準
+                    給 ::after 陰影、pulse 動畫、或 badge 使用 */
   overflow:hidden;
+                /* 裁切超出內容：
+                  - 防止 ripple / 陰影溢出圓角
+                  - 保持按鈕視覺乾淨 */
 }
+
 
 /* 陰影脈衝（按下瞬間） */
 .nav-item::after{
@@ -577,9 +604,11 @@ body{
 
 .nav-item:active{ transform:scale(.98); }
 .nav-item.active{ background:rgba(79,182,255,.16); }
+.nav-item.active .nav-label{ opacity:1; }
+
 .nav-icon{ font-size:18px; }
 .nav-label{ font-size:12px; font-weight:1000; opacity:.75; }
-.nav-item.active .nav-label{ opacity:1; }
+
 
 /* =============== Prep =============== */
 .checklist-grid{ display:grid; gap:12px; }
@@ -951,7 +980,8 @@ body{
 .segmented-3{ grid-template-columns:repeat(3, 1fr); }
 .segmented-4{ grid-template-columns:repeat(4, 1fr); }
 .segmented-5{ grid-template-columns:repeat(5, 1fr); }
-/* ✅ Prep：待辦/行李/購物 置頂（滑動時黏住） */
+
+/* ✅ Prep：待辦/行李 置頂（滑動時黏住） */
 .prep-sticky{
   position: sticky;
   top: 0;
@@ -972,6 +1002,19 @@ body{
   margin: 0 0 8px;
   box-shadow: 0 10px 18px rgba(0,0,0,.06);
 }
+
+/* ✅ 備用:零食/美妝/購物 置頂（滑動時黏住） */
+.backup-sticky{
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  background: #f7f4ee; /* 與頁面底色一致，避免透出 */
+  padding: 8px 0 10px;
+  margin: 0 0 8px;
+  box-shadow: 0 10px 18px rgba(0,0,0,.06);
+}
+
+
 
 /* =============== Tools: FX converter =============== */
 .fx-row{
