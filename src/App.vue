@@ -1014,26 +1014,28 @@
       >
 
         <!-- 分段切換：記帳 / 明細 -->
-        <div class="segmented">
-          <button
-            class="seg-btn"
-            :class="{ active: accountingTab === 'entry' }"
-            @click="goAccountingEntry"
-            type="button"
-            :title="!canWrite ? '只讀模式無法記帳，請先登入並加入 members' : ''"
-          >
-            🧾 記帳
-          </button>
+        <div class="accounting-sticky">
+          <div class="segmented">
+            <button
+              class="seg-btn"
+              :class="{ active: accountingTab === 'entry' }"
+              @click="goAccountingEntry"
+              type="button"
+              :title="!canWrite ? '只讀模式無法記帳，請先登入並加入 members' : ''"
+            >
+              🧾 記帳
+            </button>
 
 
-          <button
-            class="seg-btn"
-            :class="{ active: accountingTab === 'detail' }"
-            @click="accountingTab = 'detail'"
-            type="button"
-          >
-            ☰ 明細
-          </button>
+            <button
+              class="seg-btn"
+              :class="{ active: accountingTab === 'detail' }"
+              @click="accountingTab = 'detail'"
+              type="button"
+            >
+              ☰ 明細
+            </button>
+          </div>
         </div>
 
         <!-- ===== 記帳輸入（僅成員可用） ===== -->
@@ -1544,7 +1546,7 @@
             </button>
 
             <button class="seg-btn" :class="{ active: backupTab === 'beauty' }" @click="backupTab='beauty'" type="button">
-              💄 美妝
+              💄 藥妝
             </button>
 
             <button class="seg-btn" :class="{ active: backupTab === 'shopping' }" @click="backupTab='shopping'" type="button">
@@ -1556,7 +1558,7 @@
 
 
         
-        <!-- ===== 零食 / 美妝（同功能） ===== -->
+        <!-- ===== 零食 / 藥妝（同功能） ===== -->
         <div v-if="backupTab === 'snacks' || backupTab === 'beauty' || backupTab === 'shopping'" class="card">
 
           <div class="row-right" style="margin-top:10px;">
@@ -1586,7 +1588,7 @@
           <div v-else-if="backup[snackLikeKind].error" class="empty-state">讀取失敗：{{ backup[snackLikeKind].error }}</div>
 
           <div v-else-if="!backup[snackLikeKind].items.length" class="empty-state">
-            尚未建立{{ snackLikeKind === 'beauty' ? '美妝' : (snackLikeKind === 'shopping' ? '購物' : '零食') }}口袋名單。
+            尚未建立{{ snackLikeKind === 'beauty' ? '藥妝' : (snackLikeKind === 'shopping' ? '購物' : '零食') }}口袋名單。
           </div>
 
           <!-- ✅ 清單模式 -->
@@ -1639,7 +1641,7 @@
           <!-- ✅ 圖片庫模式（只展示已上傳的照片） -->
           <div v-else class="snack-gallery">
             <div v-if="!snackLikePhotoItems.length" class="empty-state">
-              尚未上傳任何{{ snackLikeKind === 'beauty' ? '美妝' : (snackLikeKind === 'shopping' ? '購物' : '零食') }}照片。
+              尚未上傳任何{{ snackLikeKind === 'beauty' ? '藥妝' : (snackLikeKind === 'shopping' ? '購物' : '零食') }}照片。
             </div>
 
             <button
@@ -1675,7 +1677,7 @@
                   : (backupEditor.kind === 'snacks'
                       ? '零食'
                       : (backupEditor.kind === 'beauty'
-                          ? '美妝'
+                          ? '藥妝'
                           : (backupEditor.kind === 'shopping' ? '購物' : '地點')
                         )
                     )
@@ -2907,7 +2909,7 @@ const backupTab = ref("snacks"); // food | snacks | beauty | places
 
 
 
-// ✅ 零食/美妝/購物：共用同一套 UI 與上傳邏輯
+// ✅ 零食/藥妝/購物：共用同一套 UI 與上傳邏輯
 const snackLikeKind = computed(() => {
   if (backupTab.value === "beauty") return "beauty";
   if (backupTab.value === "shopping") return "shopping";
@@ -2936,7 +2938,7 @@ function sortBackupByDone(items) {
   });
 }
 
-// ✅ 零食/美妝/購物：清單模式顯示用（會自動把勾選的放到底部）
+// ✅ 零食/藥妝/購物：清單模式顯示用（會自動把勾選的放到底部）
 const snackLikeSortedItems = computed(() => {
   const k = snackLikeKind.value;
   const items = backup.value?.[k]?.items || [];
@@ -3205,7 +3207,7 @@ async function saveBackupEdit(options = { keepOpen: false }) {
     updatedAt: serverTimestamp(),
   };
 
-  // ✅ mapQuery：零食 / 美妝 / 購物 不需要；美食/地點才存
+  // ✅ mapQuery：零食 / 藥妝 / 購物 不需要；美食/地點才存
   if (kind !== "snacks" && kind !== "beauty" && kind !== "shopping") {
     payload.mapQuery = String(backupEditor.value.form.mapQuery || "").trim();
   }
@@ -3218,7 +3220,7 @@ async function saveBackupEdit(options = { keepOpen: false }) {
         : null;
 
   } else if (kind === "snacks" || kind === "beauty" || kind === "shopping") {
-    // ✅ 零食/美妝/購物：同款「照片欄位」
+    // ✅ 零食/藥妝/購物：同款「照片欄位」
     payload.photoUrl = String(backupEditor.value.form.photoUrl || "").trim();
     payload.photoPath = String(backupEditor.value.form.photoPath || "").trim();
     payload.photoName = String(backupEditor.value.form.photoName || "").trim();
@@ -3275,7 +3277,7 @@ async function deleteBackupItem() {
   }
 }
 
-// ✅ 備用清單（零食/美妝/購物）：勾選後寫回 done，且 UI 會因排序自動移到底部
+// ✅ 備用清單（零食/藥妝/購物）：勾選後寫回 done，且 UI 會因排序自動移到底部
 async function toggleBackupDone(kind, item, ev) {
   const checked = !!ev?.target?.checked;
 

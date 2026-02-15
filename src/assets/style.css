@@ -982,7 +982,16 @@ body{
 .segmented-5{ grid-template-columns:repeat(5, 1fr); }
 
 
-
+/* ✅ accounting:記帳頁面 置頂（滑動時黏住） */
+.accounting-sticky{
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  background: #f7f4ee; /* 你的頁面底色，避免滑動時透出 */
+  padding: 0px 0 0px;
+  margin: 0 0 8px;
+  box-shadow: 0 10px 18px rgba(0,0,0,.06);
+}
 
 /* ✅ Prep：待辦/行李 置頂（滑動時黏住） */
 .prep-sticky{
@@ -990,7 +999,7 @@ body{
   top: 0;
   z-index: 35;
   background: #f7f4ee; /* 你的頁面底色，避免滑動時透出 */
-  padding: 4px 0 0px;
+  padding: 0px 0 0px;
   margin: 0 0 8px;
   box-shadow: 0 10px 18px rgba(0,0,0,.06);
 }
@@ -1001,7 +1010,7 @@ body{
   top: 0;
   z-index: 35;
   background: #f7f4ee; /* 與頁面底色一致，避免透出 */
-  padding: 4px 0 0px;
+  padding: 0px 0 0px;
   margin: 0 0 8px;
   box-shadow: 0 10px 18px rgba(0,0,0,.06);
 }
@@ -1012,7 +1021,7 @@ body{
   top: 0; /* 定義固定在螢幕最頂端（距離頂部 0 像素） */
   z-index: 35; /* 設定層級高度為 35，確保此元件會浮在多數一般內容之上 */
   background: #f7f4ee; /* 與頁面底色一致，避免透出 */
-  padding: 4px 0 0px; /* 設定內距：上方 8px、左右 0px、下方 10px，增加內部空間感 */
+  padding: 0px 0 0px; /* 設定內距：上方 8px、左右 0px、下方 10px，增加內部空間感 */
   margin: 0 0 8px; /* 設定外距：上方 0px、左右 0px、下方 8px，與後續元素保持間距 */
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.06); /* 加上陰影效果：水平 0、垂直 10px、模糊度 18px，並使用 6% 透明度的黑色，增加立體浮空感 */
 }
