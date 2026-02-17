@@ -1,5 +1,8 @@
 <!DOCTYPE html>
+  <!--向瀏覽器與搜尋引擎宣告，本網頁的主要內容使用的是「繁體中文」 -->
 <html lang="zh-Hant">
+
+
 <head>
   <link rel="manifest" href="/my-honeymoon-vue-firebase/manifest.webmanifest">
 
@@ -9,16 +12,25 @@
   <!-- 建議補上，避免某些情況拿 favicon 當 icon -->
   <link rel="icon" type="image/png" href="/my-honeymoon-vue-firebase/pwa/icon-192.png">
 
-  <meta name="theme-color" content="#4fb6ff">
+  <!-- app基礎顏色,android會顯示在導覽列 -->
+  <meta name="theme-color" content="#00fff7">
+
+  <!--讓 iPhone/iPad 使用者將網頁「加入主畫面」後，能像真正的 App 一樣以「全螢幕」模式開啟，隱藏 Safari 瀏覽器的網址列與底部的工具欄 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
+
+  <!--設定手機最上方「狀態列」（顯示時間、電量、收訊處）的視覺風格 -->
+  <!--default 會根據系統主題自動切換，通常是「白底黑字」（淺色模式）或「黑底白字」（深色模式）-->
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="蜜月">
+
+  <meta name="apple-mobile-web-app-title" content="旅行">
 
 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
-  <title>蜜月旅行 ✈️</title>
+  <title>旅行</title>
+
 </head>
+
 <body>
   <div id="app"></div>
   <script type="module" src="/src/main.js"></script>

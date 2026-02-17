@@ -75,8 +75,8 @@ body{
 }
 .day-chip:active{ transform:scale(.98); }
 .day-chip.active{
-  background:#4fb6ff;
-  border-color:rgba(79,182,255,.7);
+  background:#09cae4;
+  border-color:rgba(64, 131, 231, 0.76);
   color:#fff;
 }
 
@@ -118,7 +118,7 @@ body{
 /* =============== Weather card =============== */
 .weather-card{
   display:flex; gap:10px; align-items:stretch;
-  background:#4fb6ff;
+  background:#00c2fdfd;
   border-radius:22px;
   padding:14px;
   box-shadow:0 10px 24px rgba(0,0,0,.08);
@@ -697,7 +697,7 @@ body{
   opacity:.75;
 }
 .seg-btn.active{
-  background:#78b45a;
+  background:#09cae4;
   color:#fff;
   opacity:1;
 }

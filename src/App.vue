@@ -1837,7 +1837,17 @@
               <button class="btn btn-primary" type="button" @click="openMemberInviteModal">
                 新增
               </button>
+              <button
+                class="btn btn-secondary"
+                @click="openCloneModal"
+              >
+                複製行程
+              </button>
+
             </div>
+
+
+
           <!-- 新增成員（只有 owner 顯示）：以 Email 邀請（對方登入後自動加入） -->
 
 
@@ -1919,6 +1929,37 @@
               </div>
             </div>
 
+            </div>
+          </div>
+
+          <!--複製行程的Modal-->
+          <div v-if="showCloneModal" class="modal-overlay">
+            <div class="modal">
+              <div class="modal-title">複製行程</div>
+
+              <div class="form-grid">
+                <div class="field field-span">
+                  <div class="field-label">新的 Trip ID</div>
+                  <input
+                    v-model="newTripId"
+                    class="field-input"
+                    placeholder="例如：HM-NEW123"
+                  />
+                </div>
+              </div>
+
+              <div class="modal-actions">
+                <button class="btn btn-ghost" @click="showCloneModal=false">
+                  取消
+                </button>
+
+                <button
+                  class="btn btn-primary"
+                  @click="handleCloneTrip"
+                >
+                  開始複製
+                </button>
+              </div>
             </div>
           </div>
 
@@ -2047,6 +2088,7 @@
                   <option value="">（選擇旅程）</option>
                   <option v-for="tid in tripModal.knownTripIds" :key="tid" :value="tid">
                     {{ tid }}
+                    
                   </option>
                 </select>
               </label>
@@ -2649,6 +2691,78 @@ async function tryClaimInviteOnLogin() {
 }
 
 
+
+const showCloneModal = ref(false);
+const newTripId = ref("");
+
+function openCloneModal() {
+  newTripId.value = "";
+  showCloneModal.value = true;
+}
+
+
+async function handleCloneTrip() {
+  if (!newTripId.value) {
+    alert("請輸入新的 Trip ID");
+    return;
+  }
+
+  try {
+    const oldTripId = activeTripId.value;
+    const targetId = newTripId.value.trim();
+
+    const newTripRef = doc(db, "trips", targetId);
+    const exists = await getDoc(newTripRef);
+
+    if (exists.exists()) {
+      alert("Trip ID 已存在");
+      return;
+    }
+
+    // 建立新 trip
+    await setDoc(newTripRef, {
+      createdAt: new Date(),
+      createdBy: auth.currentUser.uid
+    });
+
+    // 只複製 plan
+    const oldPlanRef = collection(db, "trips", oldTripId, "plan");
+    const newPlanRef = collection(db, "trips", targetId, "plan");
+
+    const snap = await getDocs(oldPlanRef);
+
+    for (const d of snap.docs) {
+      await setDoc(
+        doc(newPlanRef, d.id),
+        d.data()
+      );
+    }
+
+
+    // 設自己為 owner
+    await setDoc(
+      doc(db, "trips", targetId, "members", auth.currentUser.uid),
+      {
+        uid: auth.currentUser.uid,
+        role: "owner",
+        canWrite: true,
+        displayName: auth.currentUser.displayName || "",
+        createdAt: new Date()
+      }
+    );
+
+    alert("複製完成");
+
+    activeTripId.value = targetId;
+    localStorage.setItem("activeTripId", targetId);
+
+    showCloneModal.value = false;
+
+  } catch (err) {
+    console.error(err);
+    alert("複製失敗");
+  }
+}
 
 
 
