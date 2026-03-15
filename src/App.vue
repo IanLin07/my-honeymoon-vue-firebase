@@ -2,6 +2,9 @@
   <div class="app-shell">
     <header class="app-header">
       <div class="app-title"> {{ tripTitle || activeTripId }} </div><!--廷翰與燁姍的蜜月旅行❤️-->
+      <!-- {{ }} 叫做：模板插值（Template Interpolation）意思是把 JavaScript 的變數「動態顯示」到畫面上。 -->
+      <!-- 這是 JavaScript 的邏輯 OR 運算子,如果左邊有值 → 顯示左邊 如果左邊沒有值 → 顯示右邊 -->
+
       <div class="app-subtitle">{{ pageTitle }}</div>
 
       <!-- 登入列（僅 Google 登入；未登入＝只讀瀏覽模式） -->
@@ -65,8 +68,6 @@
 
       <!-- =============== 行程頁（任何人可看；登入且是成員才可改） =============== -->
       <section v-if="currentPage === 'itinerary'" class="page">
-
-
 
         <div class="day-tabs">
           <button
