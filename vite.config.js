@@ -17,9 +17,9 @@ export default defineConfig({
 
       // 你是 GitHub Pages 子路徑部署：一定要對齊 scope / start_url
       manifest: {
-        name: '廷翰與燁姍的蜜月旅行',
-        short_name: '蜜月',
-        description: '蜜月行程與記帳 App',
+        name: '旅行App',
+        short_name: '旅行',
+        description: '旅行App',
         display: 'standalone',
         background_color: '#f7f4ee',
         theme_color: '#4fb6ff',
